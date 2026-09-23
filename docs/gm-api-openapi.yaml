@@ -1,0 +1,669 @@
+openapi: 3.1.0
+info:
+  title: GM External API
+  version: 1.0.0
+  description: Read-only external API for GM over HTTPS with Bearer authentication.
+servers:
+  - url: https://example.com/api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: GM Users
+  - name: GM Orders
+  - name: GM Branch
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Healthcheck
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /gm/users/me:
+    get:
+      tags: [GM Users]
+      summary: Current master profile
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmUserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gm/users/me/metrics:
+    get:
+      tags: [GM Users]
+      summary: Current master metrics
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GmMetrics'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gm/users/me/rating-history:
+    get:
+      tags: [GM Users]
+      summary: Current master rating history
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Rating history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingHistoryResponse'
+  /gm/orders:
+    get:
+      tags: [GM Orders]
+      summary: Orders list for current master
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: One or many comma-separated statuses.
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Orders page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdersPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gm/orders/{orderId}:
+    get:
+      tags: [GM Orders]
+      summary: Order details
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gm/orders/{orderId}/documents:
+    get:
+      tags: [GM Orders]
+      summary: Order documents
+      parameters:
+        - $ref: '#/components/parameters/OrderIdPath'
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gm/users/me/reviews:
+    get:
+      tags: [GM Users]
+      summary: Current master reviews
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+        - name: month
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+        - name: sentiment
+          in: query
+          schema:
+            type: string
+            enum: [all, positive, neutral, negative]
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Reviews page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewsPage'
+  /gm/users/me/reviews/negative-open:
+    get:
+      tags: [GM Users]
+      summary: Open negative reviews
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NegativeReviewsResponse'
+  /gm/guild-applications:
+    get:
+      tags: [GM Users]
+      summary: Guild applications
+      responses:
+        '200':
+          description: Applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuildApplicationsResponse'
+  /gm/branch/roster:
+    get:
+      tags: [GM Branch]
+      summary: Branch roster
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Roster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchRosterResponse'
+  /gm/branch/stats:
+    get:
+      tags: [GM Branch]
+      summary: Branch aggregates
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BranchStats'
+  /gm/users/me/messenger:
+    get:
+      tags: [GM Users]
+      summary: Messenger identity
+      parameters:
+        - $ref: '#/components/parameters/UserIdQuery'
+        - $ref: '#/components/parameters/LoginQuery'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/UserIdHeader'
+        - $ref: '#/components/parameters/LoginHeader'
+        - $ref: '#/components/parameters/EmailHeader'
+      responses:
+        '200':
+          description: Identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessengerIdentity'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  parameters:
+    UserIdQuery:
+      name: userId
+      in: query
+      schema:
+        type: integer
+      required: false
+    LoginQuery:
+      name: login
+      in: query
+      schema:
+        type: string
+      required: false
+    EmailQuery:
+      name: email
+      in: query
+      schema:
+        type: string
+        format: email
+      required: false
+    UserIdHeader:
+      name: X-GM-User-Id
+      in: header
+      schema:
+        type: integer
+      required: false
+    LoginHeader:
+      name: X-GM-Login
+      in: header
+      schema:
+        type: string
+      required: false
+    EmailHeader:
+      name: X-GM-Email
+      in: header
+      schema:
+        type: string
+        format: email
+      required: false
+    PageQuery:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    PageSizeQuery:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+    OrderIdPath:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: integer
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    HealthResponse:
+      type: object
+      required: [ok, service, version, time]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+        version:
+          type: string
+        time:
+          type: string
+          format: date-time
+    GmUserProfile:
+      type: object
+      required:
+        [userId, login, email, displayName, fullName, role, status, isVerifiedByPassport, isBranchDirector]
+      properties:
+        userId: { type: integer }
+        login: { type: string }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        fullName: { type: string }
+        inn: { type: ['string', 'null'], description: 'INN 10 or 12 digits from HR; null if empty' }
+        birthDate: { type: ['string', 'null'], format: date }
+        guildJoinedAt: { type: ['string', 'null'], format: date }
+        role: { type: ['string', 'null'] }
+        rating: { type: integer, minimum: 0, maximum: 100, description: 'Guild rating percent; currently min(100, completed orders)' }
+        status: { type: string }
+        isVerifiedByPassport: { type: boolean }
+        isBranchDirector: { type: boolean }
+        branchId: { type: ['integer', 'null'] }
+        branchCity: { type: ['string', 'null'] }
+        photoUrl: { type: ['string', 'null'] }
+        svyazGuildLogin: { type: ['string', 'null'] }
+        svyazGuildPassword: { type: ['string', 'null'] }
+        deputySvyazGuildLogin: { type: ['string', 'null'] }
+        deputySvyazGuildPassword: { type: ['string', 'null'] }
+    GmMetrics:
+      type: object
+      required:
+        [primaryClosedOrdersMonth, primarySalaryRub, masterEarnedRub, branchCashRub, primaryAvgCheckRub, masterMonthRefusals, masterMonthCancelledApplications, unreadMessages, deputyUnreadMessages]
+      properties:
+        primaryClosedOrdersMonth: { type: integer }
+        primarySalaryRub: { type: integer }
+        masterEarnedRub: { type: integer }
+        branchCashRub: { type: integer }
+        primaryAvgCheckRub: { type: integer }
+        masterMonthRefusals: { type: integer }
+        masterMonthCancelledApplications: { type: integer }
+        unreadMessages: { type: integer }
+        deputyUnreadMessages: { type: integer }
+    RatingHistoryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RatingHistoryItem'
+    RatingHistoryItem:
+      type: object
+      properties:
+        id: { type: integer }
+        date: { type: string, format: date-time }
+        type: { type: string }
+        delta: { type: number }
+        reason: { type: string }
+        source: { type: string }
+        relatedOrderId: { type: ['integer', 'null'] }
+        relatedReviewId: { type: ['integer', 'null'] }
+    OrdersPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    OrderSummary:
+      type: object
+      required:
+        [id, orderNumber, status, amountRub]
+      properties:
+        id: { type: integer }
+        orderNumber: { type: string }
+        status: { type: string }
+        description: { type: ['string', 'null'] }
+        address: { type: ['string', 'null'] }
+        clientName: { type: ['string', 'null'] }
+        clientPhone: { type: ['string', 'null'] }
+        equipmentType: { type: ['string', 'null'] }
+        previousContactsSummary: { type: ['string', 'null'] }
+        clientContactType: { type: ['string', 'null'] }
+        techDirectorComment: { type: ['string', 'null'] }
+        amountRub: { type: integer }
+        billingCategory: { type: ['string', 'null'] }
+        distanceKm: { type: ['number', 'null'] }
+        createdAt: { type: ['string', 'null'], format: date-time }
+        updatedAt: { type: ['string', 'null'], format: date-time }
+        closedAt: { type: ['string', 'null'], format: date-time }
+        contactUri: { type: ['string', 'null'] }
+    OrderDetails:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          properties:
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/Document'
+            financialSnapshot:
+              $ref: '#/components/schemas/FinancialSnapshot'
+            timeline:
+              type: array
+              items:
+                $ref: '#/components/schemas/TimelineItem'
+            assignedMaster:
+              $ref: '#/components/schemas/AssignedMaster'
+            branch:
+              $ref: '#/components/schemas/BranchRef'
+            canCallClient: { type: boolean }
+            canMessageClient: { type: boolean }
+    FinancialSnapshot:
+      type: object
+      properties:
+        amountPaidRub: { type: integer }
+        amountCompRub: { type: integer }
+        netAmountRub: { type: integer }
+        masterSalaryRub: { type: integer }
+        orderType: { type: ['string', 'null'] }
+        orderCore: { type: ['string', 'null'] }
+    TimelineItem:
+      type: object
+      properties:
+        date: { type: ['string', 'null'], format: date-time }
+        type: { type: ['string', 'null'] }
+        label: { type: ['string', 'null'] }
+        author: { type: ['string', 'null'] }
+    AssignedMaster:
+      type: object
+      properties:
+        userId: { type: integer }
+        displayName: { type: string }
+        role: { type: ['string', 'null'] }
+        phone: { type: ['string', 'null'] }
+    BranchRef:
+      type: object
+      properties:
+        branchId: { type: ['integer', 'null'] }
+        branchCity: { type: ['string', 'null'] }
+    Document:
+      type: object
+      properties:
+        id: { type: integer }
+        kind: { type: ['string', 'null'] }
+        fileName: { type: string }
+        mimeType: { type: ['string', 'null'] }
+        url: { type: string }
+        uploadedAt: { type: ['string', 'null'], format: date-time }
+    DocumentsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+    ReviewsPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        author: { type: ['string', 'null'] }
+        text: { type: ['string', 'null'] }
+        score: { type: ['number', 'null'] }
+        emoji: { type: ['string', 'null'] }
+        date: { type: ['string', 'null'], format: date-time }
+        source: { type: ['string', 'null'] }
+        sentiment: { type: ['string', 'null'] }
+        correctedAt: { type: ['string', 'null'], format: date-time }
+        correctedBy: { type: ['string', 'null'] }
+    NegativeReview:
+      type: object
+      properties:
+        id: { type: integer }
+        author: { type: ['string', 'null'] }
+        text: { type: ['string', 'null'] }
+        score: { type: ['number', 'null'] }
+        date: { type: ['string', 'null'], format: date-time }
+        source: { type: ['string', 'null'] }
+        relatedOrderId: { type: ['integer', 'null'] }
+    NegativeReviewsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NegativeReview'
+    GuildApplicationsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuildApplication'
+    GuildApplication:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        phone: { type: ['string', 'null'] }
+        skillset: { type: ['string', 'null'] }
+        birthYear: { type: ['integer', 'null'] }
+        source: { type: ['string', 'null'] }
+        referrerMasterId: { type: ['integer', 'null'] }
+        referrerName: { type: ['string', 'null'] }
+        status: { type: ['string', 'null'] }
+        createdAt: { type: ['string', 'null'], format: date-time }
+        passportVerified: { type: ['boolean', 'null'] }
+    BranchRosterResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BranchRosterItem'
+    BranchRosterItem:
+      type: object
+      properties:
+        id: { type: integer }
+        displayName: { type: string }
+        photoUrl: { type: ['string', 'null'] }
+        rating: { type: ['integer', 'null'] }
+        expelled: { type: boolean }
+        banishedFromGuild: { type: boolean }
+        birthDate: { type: ['string', 'null'], format: date }
+        isVerifiedByPassport: { type: boolean }
+        verifiedByReg: { type: boolean }
+        trainingBadgeFromReg: { type: boolean }
+        roleTier: { type: ['string', 'null'] }
+        isBranchDirector: { type: boolean }
+        manualBadges:
+          type: array
+          items:
+            type: string
+        avgCheckRub: { type: integer }
+        closedOrdersMonth: { type: integer }
+        salaryRub: { type: integer }
+    BranchStats:
+      type: object
+      properties:
+        branchId: { type: ['integer', 'null'] }
+        branchCity: { type: ['string', 'null'] }
+        ordersClosedMonth: { type: integer }
+        avgCheckRub: { type: integer }
+        cashRub: { type: integer }
+        activeMasters: { type: integer }
+        expelledMasters: { type: integer }
+        negativeReviewsCount: { type: integer }
+        cancellationsTotal: { type: integer }
+    MessengerIdentity:
+      type: object
+      properties:
+        externalId: { type: integer }
+        name: { type: ['string', 'null'] }
+        email: { type: ['string', 'null'], format: email }
+        role: { type: ['string', 'null'] }
+        title: { type: ['string', 'null'] }
+        city: { type: ['string', 'null'] }

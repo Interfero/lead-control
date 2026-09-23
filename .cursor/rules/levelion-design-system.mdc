@@ -1,0 +1,24 @@
+---
+description: Дизайн-система Lead Control — токены и UI-примитивы
+globs: resources/views/**/*.blade.php,resources/css/**/*.css
+alwaysApply: false
+---
+
+# Дизайн-система Lead Control
+
+Полное описание: [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md).
+
+## Обязательно
+
+- Цвета интерфейса — через семантические токены (`bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground`, `bg-input`, `ring-ring` и т.д.), заданные в `resources/css/app.css`.
+- Повторяющиеся контролы — через Blade-компоненты `x-ui.*` в `resources/views/components/ui/`.
+
+## Не делать
+
+- Не добавлять произвольные цвета Tailwind вроде `bg-blue-600`, `text-gray-300` для базового UI (исключение — осмысленные цвета в бейджах статусов).
+- Не задавать цвета через инлайн `style="color:..."` / `style="background:..."` без веской причины.
+
+## Темы
+
+- Светлая и тёмная тема: класс `dark` на `<html>`. Переключатель в шапке и в настройках; предпочтение сохраняется в БД (`users.theme`) и `localStorage`.
+- Новые экраны проверять в обеих темах.

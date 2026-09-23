@@ -1,0 +1,61 @@
+---
+description: Общие правила проекта Levelion CRM
+alwaysApply: true
+---
+
+# Levelion CRM — Общие правила
+
+## О проекте
+CRM-система для управления выездным ремонтом компьютерной техники и телевизоров. Proprietary — все права защищены.
+
+## Рабочий контур и продакшен
+- **Приложение в продакшене** на хостинге reg.ru (каталог `www/lead-control.space.app`, корень веба — `public`). Изменения выкладываются через FTP-скрипты `deploy-upload-*.sh`.
+- **FTP-реквизиты** в скриптах: хост `31.31.197.5`, порт 21, пользователь `u3398705_cursor`, remote root `/www/lead-control.space.app`. Пароль в файл не писать — передаётся через `FTP_PASS` при запуске.
+- Команды Artisan на сервере в SSH: **`php83`**, не `php`.
+- **Локальная копия** — для разработки, git, документации. Источник правды по данным — MySQL на сервере.
+- Локальный dev-порт: `php artisan serve --port=8010`.
+
+## Стек
+- PHP 8.2+, Laravel 12, Blade (серверный рендеринг), Tailwind CSS 4 (CSS-first), Vite 7, MySQL 8.0
+- vanilla JS + Axios. Без React/Vue/Angular. Без Breeze/Jetstream/Fortify
+- Шрифты: Plus Jakarta Sans + JetBrains Mono (Bunny Fonts); токены темы Deep Purple в `resources/css/app.css`. Подробнее: `docs/DESIGN_SYSTEM.md`, правило `levelion-design-system.mdc`.
+
+## Ключевые сущности
+- **Модели** (28): Order, Person, PersonPhone, User, City, District, Address, Source, Role, CfmCategory, CfmOperation, Comment, Complaint, Review, Document, Call, Bank, Interview, KnowledgeArticle, MasterSchedule, Promoter, PromAppointment, PromMeeting, PromPayment, PromPaymentDetail, Route, RouteAction, RouteMaket
+- **Контроллеры**: OrderController, PersonController, CfmController, HrController, DashboardController, DocumentController, ComplaintController, ReviewController, ReportController, PromJournalController, PromRoutesController, PromActionsController, PromPaymentsController, KnowledgeController, SettingsController, AddressController, PersonPhoneController, LoginController, MangoWebhookController, CityManagementController
+- **Сервисы**: `app/Services/` — бизнес-логика выносится сюда (OrderService, SearchService, OrderVisibilityService, DashboardService, HrService и др.)
+- **Middleware**: `CheckRole` (алиас `role`) — проверка ролей, developer обходит проверку; `CheckCity` (алиас `city`) — проверка доступа к городу
+
+## Особенности проекта
+- Первичные ключи нестандартные: `order_id`, `person_id`, `user_id` (не `id`)
+- `Order` не использует `$timestamps` Laravel — свои поля `order_created_at` / `order_closed_at`
+- Роли пользователей через pivot-таблицу, проверка `hasRole()` / `hasAnyRole()` по `role_code`
+- Фильтрация по городам: пользователь видит только свои города (кроме developer/call_center/general_director)
+
+## Маршруты
+- Все маршруты под middleware `auth` (кроме login)
+- Ролевой доступ: `->middleware('role:admin,branch_head,...')`
+- Именованные маршруты: `orders.index`, `persons.show`, `cfm.index` и т.д.
+- Группировка по префиксам: `orders`, `persons`, `documents`, `cfm`, `management`, `hr`, `reports`, `complaints`, `prom`, `information`, `settings`
+
+## Стилизация
+- Основной CSS: `public/css/app.css` (статический файл) + inline-стили в `layouts/app.blade.php`
+- Tailwind pipeline: `resources/css/app.css` → Vite → сборка
+- CSS-переменные заданы в layout: `--primary`, `--bg-dark` и др.
+
+## Документация
+- `docs/` — каталог для документации проекта (CHANGELOG, план и т.д.)
+- После завершения работы обнови `docs/CHANGELOG.md` (или `docs/ИСТОРИЯ_РАЗРАБОТКИ.md`)
+
+## Принципы разработки
+- OOP, SOLID, DRY
+- Blade-компоненты для переиспользуемых UI-элементов (`resources/views/components/`)
+- Данные из MySQL (на проде — с сервера). Никаких моков, захардкоженных данных, фейковых массивов в контроллерах
+- Тяжёлая логика — в сервисы (`app/Services/`), не в контроллеры
+- Хелперы: `app/Helpers/icons.php` (автозагрузка через composer, функция `icon()`)
+
+## Общение
+- Простым языком, минимум проф. терминов
+- Перед выполнением крупных операций — объясни что и зачем, дождись подтверждения
+- Если задача большая — используй субагентов
+- Противоречия или непонятные моменты — обсуди, не приступай с нерешёнными вопросами

@@ -1,0 +1,983 @@
+@import "tailwindcss";
+@import "./layout.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
+@source "../**/*.blade.php";
+@source "../**/*.js";
+
+/*
+ * Lead Control — Deep Purple (tweakcn)
+ * Design tokens: light + dark + Tailwind v4 @theme inline
+ */
+
+:root {
+    /* Для legacy .alert в layout.css (color-mix) */
+    --success: #29a366;
+    --warning: #f59e0b;
+    --danger: #ef4344;
+
+    --background: #f8fafc;
+    --foreground: #030711;
+    --card: #ffffff;
+    --card-foreground: #030711;
+    --popover: #ffffff;
+    --popover-foreground: #030711;
+    --primary: #6b26d9;
+    --primary-foreground: #f8fafc;
+    --secondary: #efedf3;
+    --secondary-foreground: #401782;
+    --muted: #f3f4f6;
+    --muted-foreground: #6b7280;
+    --accent: #f3edfd;
+    --accent-foreground: #6b26d9;
+    --destructive: #ef4343;
+    --destructive-foreground: #f8fafc;
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #6b26d9;
+    --chart-1: #6b26d9;
+    --chart-2: #0bb8da;
+    --chart-3: #29a366;
+    --chart-4: #af57db;
+    --chart-5: #eb4799;
+    /* Верхняя навигация — всегда «тёмная полоса» (как legacy navbar) */
+    --sidebar: #1f2937;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #6b26d9;
+    --sidebar-primary-foreground: #f8fafc;
+    --sidebar-accent: #111827;
+    --sidebar-accent-foreground: #f8fafc;
+    --sidebar-border: #374151;
+    --sidebar-ring: #6b26d9;
+    --font-sans: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+    --font-serif: Georgia, serif;
+    --font-mono: "JetBrains Mono", monospace;
+    --radius: 1rem;
+    --shadow-x: 0px;
+    --shadow-y: 8px;
+    --shadow-blur: 30px;
+    --shadow-spread: 0px;
+    --shadow-opacity: 0.08;
+    --shadow-color: hsl(263, 70%, 50%);
+    --shadow-2xs: 0px 8px 30px 0px hsl(263 70% 50% / 0.04);
+    --shadow-xs: 0px 8px 30px 0px hsl(263 70% 50% / 0.04);
+    --shadow-sm: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 1px 2px -1px hsl(263 70% 50% / 0.08);
+    --shadow: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 1px 2px -1px hsl(263 70% 50% / 0.08);
+    --shadow-md: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 2px 4px -1px hsl(263 70% 50% / 0.08);
+    --shadow-lg: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 4px 6px -1px hsl(263 70% 50% / 0.08);
+    --shadow-xl: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 8px 10px -1px hsl(263 70% 50% / 0.08);
+    --shadow-2xl: 0px 8px 30px 0px hsl(263 70% 50% / 0.2);
+    --tracking-normal: -0.02em;
+    --spacing: 0.25rem;
+}
+
+.dark {
+    --success: #26d980;
+    --warning: #fbbf24;
+    --danger: #f87171;
+
+    --background: #050406;
+    --foreground: #f8fafc;
+    --card: #09080d;
+    --card-foreground: #f8fafc;
+    --popover: #0c0a10;
+    --popover-foreground: #f8fafc;
+    --primary: #945af2;
+    --primary-foreground: #050406;
+    --secondary: #231736;
+    --secondary-foreground: #d1b8f9;
+    --muted: #1d1825;
+    --muted-foreground: #b0abba;
+    --accent: #210f3d;
+    --accent-foreground: #945af2;
+    --destructive: #ef4343;
+    --destructive-foreground: #f8fafc;
+    --border: #241f2e;
+    --input: #241f2e;
+    --ring: #945af2;
+    --chart-1: #945af2;
+    --chart-2: #30c9e8;
+    --chart-3: #26d980;
+    --chart-4: #c775f0;
+    --chart-5: #f655a6;
+    --sidebar: #07060a;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #945af2;
+    --sidebar-primary-foreground: #050406;
+    --sidebar-accent: #1c122b;
+    --sidebar-accent-foreground: #945af2;
+    --sidebar-border: #1d1825;
+    --sidebar-ring: #945af2;
+    --font-sans: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+    --font-serif: Georgia, serif;
+    --font-mono: "JetBrains Mono", monospace;
+    --radius: 1rem;
+    --shadow-x: 0px;
+    --shadow-y: 20px;
+    --shadow-blur: 40px;
+    --shadow-spread: -10px;
+    --shadow-opacity: 0.6;
+    --shadow-color: hsl(0, 0%, 0%);
+    --shadow-2xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.3);
+    --shadow-xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.3);
+    --shadow-sm: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 1px 2px -11px hsl(0 0% 0% / 0.6);
+    --shadow: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 1px 2px -11px hsl(0 0% 0% / 0.6);
+    --shadow-md: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 2px 4px -11px hsl(0 0% 0% / 0.6);
+    --shadow-lg: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 4px 6px -11px hsl(0 0% 0% / 0.6);
+    --shadow-xl: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 8px 10px -11px hsl(0 0% 0% / 0.6);
+    --shadow-2xl: 0px 20px 40px -10px hsl(0 0% 0% / 1.5);
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
+    --font-serif: var(--font-serif);
+
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --shadow-2xs: var(--shadow-2xs);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-sm: var(--shadow-sm);
+    --shadow: var(--shadow);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-xl: var(--shadow-xl);
+    --shadow-2xl: var(--shadow-2xl);
+
+    --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+    --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+    --tracking-normal: var(--tracking-normal);
+    --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+    --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+    --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    body {
+        @apply bg-background text-foreground font-sans antialiased;
+        letter-spacing: var(--tracking-normal);
+    }
+}
+
+/* Dropdown transitions */
+[data-dropdown].open [data-dropdown-panel] {
+    opacity: 1;
+    visibility: visible;
+}
+
+[data-dropdown].open [data-dropdown-arrow] {
+    transform: rotate(180deg);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 4px;
+    opacity: 0.5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    opacity: 0.7;
+}
+
+input[type="date"].date-filter-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+}
+
+.dark input[type="date"].date-filter-input {
+    color-scheme: dark;
+}
+
+:root:not(.dark) input[type="date"].date-filter-input {
+    color-scheme: light;
+}
+
+.table-filter::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.7;
+}
+
+[data-sort-dir="asc"] [data-sort-icon] svg {
+    transform: rotate(180deg);
+}
+
+[data-sort-dir="desc"] [data-sort-icon] svg {
+    transform: rotate(0deg);
+}
+
+/* Клон шапки заказов — выключен (наезд на строки / просвечивание статусов) */
+.table-sticky-clone {
+    display: none !important;
+}
+
+/* Отчёт по кассе */
+.cfm-summary-page {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.cfm-summary-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.cfm-summary-uk {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--primary);
+    color: var(--primary-foreground, #fff);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cfm-summary-uk__sum {
+    opacity: 0.85;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.cfm-summary-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--card);
+    box-sizing: border-box;
+}
+
+.cfm-summary-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.cfm-summary-dates label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.cfm-summary-dates span {
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+}
+
+.cfm-summary-date-input {
+    width: 9.5rem;
+    max-width: 100%;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--background, var(--card));
+    color: var(--foreground);
+    font-size: 0.875rem;
+    box-sizing: border-box;
+}
+
+.cfm-summary-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.cfm-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--background, transparent);
+    color: var(--foreground);
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.cfm-summary-chip.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground, #fff);
+}
+
+.cfm-summary-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: auto;
+}
+
+.cfm-summary-icon-btn,
+.cfm-summary-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: var(--primary);
+    color: var(--primary-foreground, #fff);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cfm-summary-icon-btn {
+    width: 2.25rem;
+    padding: 0;
+}
+
+.cfm-summary-submit {
+    padding: 0 0.85rem;
+}
+
+.cfm-summary-desktop {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--card);
+    overflow: hidden;
+}
+
+.cfm-summary-table-scroll {
+    max-height: min(65vh, calc(100vh - 16rem));
+    overflow: auto;
+}
+
+.cfm-summary-table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--muted);
+    box-shadow: 0 1px 0 var(--border);
+}
+
+.cfm-summary-mobile {
+    display: none;
+}
+
+.cfm-summary-export {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.cfm-summary-export__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--card);
+    color: var(--foreground);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.cfm-summary-export__btn.is-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground, #fff);
+}
+
+@media (max-width: 767px) {
+    .cfm-summary-page {
+        overflow-x: clip;
+    }
+
+    .cfm-summary-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cfm-summary-uk {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .cfm-summary-filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+        padding: 0.625rem;
+    }
+
+    .cfm-summary-dates {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+    }
+
+    .cfm-summary-date-input {
+        width: 100%;
+    }
+
+    .cfm-summary-presets {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+    }
+
+    .cfm-summary-presets > :last-child {
+        grid-column: 1 / -1;
+    }
+
+    .cfm-summary-chip {
+        width: 100%;
+    }
+
+    .cfm-summary-actions {
+        margin-left: 0;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 2.5rem 1fr;
+    }
+
+    .cfm-summary-submit {
+        width: 100%;
+    }
+
+    .cfm-summary-desktop {
+        display: none !important;
+    }
+
+    .cfm-summary-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .cfm-summary-card {
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--card);
+        color: inherit;
+        text-decoration: none;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    a.cfm-summary-card:active {
+        filter: brightness(0.97);
+    }
+
+    .cfm-summary-card--total {
+        background: var(--muted);
+    }
+
+    .cfm-summary-card__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.55rem;
+    }
+
+    .cfm-summary-card__title {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--primary);
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .cfm-summary-card--total .cfm-summary-card__title {
+        color: var(--foreground);
+    }
+
+    .cfm-summary-card__balance {
+        flex-shrink: 0;
+        font-size: 0.9375rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .cfm-summary-card__grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem 0.625rem;
+    }
+
+    .cfm-summary-card__grid > div {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+    }
+
+    .cfm-summary-card__span {
+        grid-column: 1 / -1;
+    }
+
+    .cfm-summary-card__grid span {
+        font-size: 0.625rem;
+        color: var(--muted-foreground);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .cfm-summary-card__grid b,
+    .cfm-summary-card__balance {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .cfm-summary-card__grid b {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+
+    .cfm-summary-card .is-pos,
+    .cfm-summary-card__balance.is-pos {
+        color: var(--success);
+    }
+
+    .cfm-summary-card .is-neg,
+    .cfm-summary-card__balance.is-neg {
+        color: var(--destructive);
+    }
+
+    .cfm-summary-empty {
+        padding: 1.5rem 0.75rem;
+        text-align: center;
+        color: var(--muted-foreground);
+        border: 1px dashed var(--border);
+        border-radius: 0.75rem;
+    }
+
+    .cfm-summary-export {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+    }
+
+    .cfm-summary-export__btn {
+        width: 100%;
+        min-height: 2.5rem;
+    }
+}
+
+/* Бейдж «новые заказы» в навбаре (inline script в layouts/app) */
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* HR /hr/masters — сетка карточек групп показателей под основным блоком фильтров */
+.hr-masters-column-groups {
+    display: grid;
+    align-items: stretch;
+    gap: 0.45rem;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+    .hr-masters-column-groups {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1024px) {
+    .hr-masters-column-groups {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .hr-masters-column-groups {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+.hr-masters-column-groups .hr-masters-metric-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    min-height: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.hr-masters-column-groups .setting-children-compact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+}
+
+/* HR /hr/roster — график мастеров (таблица недели) */
+.hr-roster-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Капсулы ссылок навигации по неделе (без общей обёртки) */
+.hr-roster-page a.hr-roster-week-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: nowrap;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.hr-roster-page a.hr-roster-week-nav:hover {
+    background: var(--muted);
+    text-decoration: none;
+    color: var(--foreground);
+}
+
+/* Кликабельный диапазон дат: невидимый date поверх текста (календарь открывается через showPicker в JS) */
+.hr-roster-page .hr-roster-week-picker .hr-roster-week-input {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-sizing: border-box;
+    appearance: auto;
+    -webkit-appearance: auto;
+}
+
+.hr-roster-page .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 0.8125rem;
+}
+
+.hr-roster-page .schedule-table th,
+.hr-roster-page .schedule-table td {
+    border: 1px solid var(--border);
+    padding: 0.45rem 0.35rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.hr-roster-page .schedule-table thead th {
+    background: var(--muted);
+    color: var(--foreground);
+    font-weight: 600;
+}
+
+.hr-roster-page .schedule-table thead th.day-header {
+    min-width: 4.25rem;
+}
+
+.hr-roster-page .schedule-table .day-name {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+}
+
+.hr-roster-page .schedule-table .day-number {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.hr-roster-page .schedule-table .day-month {
+    font-size: 0.65rem;
+    color: var(--muted-foreground);
+}
+
+.hr-roster-page .schedule-table .master-cell {
+    text-align: left;
+    vertical-align: top;
+    width: 200px;
+    max-width: 200px;
+    background: var(--card);
+    padding: 0.5rem 0.6rem;
+}
+
+.hr-roster-page .schedule-table .master-cell strong {
+    display: block;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.hr-roster-page .schedule-table .master-cities {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+    line-height: 1.3;
+}
+
+.hr-roster-page .schedule-cell {
+    cursor: default;
+    user-select: none;
+    transition:
+        background 0.12s ease,
+        filter 0.12s ease;
+}
+
+/* Фон ячеек «работает» / «выходной» — классы .status-completed / .status-cancelled_cc из public/css (как статусы заказов) */
+
+.hr-roster-page .schedule-cell.edit-mode {
+    cursor: pointer;
+    outline: 2px dashed color-mix(in srgb, var(--primary) 55%, transparent);
+    outline-offset: -2px;
+}
+
+.hr-roster-page.hr-roster-editing::before {
+    content: 'Режим редактирования: клик по дню — смена графика, Shift+клик — примечание';
+    display: block;
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--foreground);
+    font-size: 0.8125rem;
+}
+
+.hr-roster-page .schedule-cell.edit-mode:hover {
+    filter: brightness(1.06);
+}
+
+.dark .hr-roster-page .schedule-cell.edit-mode:hover {
+    filter: brightness(1.12);
+}
+
+.hr-roster-page .cell-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 2rem;
+}
+
+.hr-roster-page .schedule-table .status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
+    color: inherit;
+}
+
+.hr-roster-page .schedule-table .status-icon.off {
+    color: inherit;
+}
+
+.hr-roster-page .schedule-table .day-note {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hr-roster-page .schedule-table tfoot .total-row td {
+    background: var(--muted);
+    font-size: 0.8125rem;
+}
+
+.hr-roster-page .schedule-table .total-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+.hr-roster-page .week-title {
+    font-weight: 600;
+    color: var(--foreground);
+    white-space: nowrap;
+    padding: 0 0.25rem;
+}
+
+/* Иконка карандаша чуть крупнее стандартной внутри кнопки 36×36 (как size="icon" на заказах) */
+.hr-roster-page .hr-roster-edit-btn .hr-roster-edit-icon .icon {
+    width: 1.2rem;
+    height: 1.2rem;
+}
+
+.hr-roster-page .hr-roster-edit-btn .hr-roster-edit-icon .icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Модалки с .modal-backdrop: затемнение на подложке, карточка по центру */
+.modal:has(.modal-backdrop) {
+    background: transparent !important;
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: color-mix(in srgb, var(--foreground) 45%, transparent);
+}
+
+.modal:has(.modal-backdrop) .modal-content {
+    position: relative;
+    z-index: 1;
+    margin: 1rem;
+}
+
+/* Отчёт по претензиям: полные подписи в шапке, перенос по строкам внутри ячеек (не в title) */
+.complaints-report-table {
+    table-layout: fixed;
+    width: 100%;
+    max-width: 100%;
+    font-size: 0.8125rem;
+}
+
+.complaints-report-table thead th {
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--foreground);
+}
+
+.complaints-report-table.orders-sticky-table thead tr:first-child th {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
+    padding: 0.45rem 0.25rem;
+    vertical-align: bottom;
+}
+
+.complaints-report-table tbody td {
+    padding: 0.35rem 0.15rem;
+}
+
+.complaints-report-table .complaints-report-city {
+    width: 11%;
+    max-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.complaints-report-table thead .complaints-report-metric {
+    width: 5.2%;
+    text-align: center;
+}
+
+.complaints-report-table tbody .complaints-report-metric {
+    width: 5.2%;
+    text-align: center;
+}
+
+.complaints-report-table thead .complaints-report-type {
+    width: auto;
+    min-width: 0;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    hyphens: auto;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+.complaints-report-table tbody .complaints-report-type {
+    text-align: center;
+    min-width: 0;
+    padding-left: 0.1rem;
+    padding-right: 0.1rem;
+}

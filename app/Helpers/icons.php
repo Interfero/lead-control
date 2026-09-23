@@ -1,0 +1,40 @@
+<?php
+
+/**
+ * Получить иконку по имени
+ * Возвращает SVG, обёрнутый в <span class="icon">, или эмодзи
+ *
+ * @param string $name Имя иконки из config/icons.php
+ * @param string $class Дополнительные CSS-классы (например icon-lg)
+ * @return string HTML
+ */
+function icon(string $name, string $class = ''): string
+{
+    $icons = config('icons', []);
+
+    if (! isset($icons[$name])) {
+        $icon = $icons['default'] ?? '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"/></svg>';
+    } else {
+        $icon = $icons[$name];
+    }
+
+    if (str_starts_with($icon, '<svg')) {
+        $classAttr = $class ? " class=\"icon {$class}\"" : ' class="icon"';
+        return "<span{$classAttr}>{$icon}</span>";
+    }
+
+    return $icon;
+}
+
+/**
+ * Получить сырой SVG иконки (без обёртки)
+ *
+ * @param string $name Имя иконки
+ * @return string SVG или пустая строка
+ */
+function iconRaw(string $name): string
+{
+    $icon = config("icons.{$name}", '');
+
+    return str_starts_with($icon, '<svg') ? $icon : '';
+}

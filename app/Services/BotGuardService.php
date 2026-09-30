@@ -17,7 +17,17 @@ class BotGuardService
 
     public function enabled(): bool
     {
-        return (bool) config('bot_guard.enabled', true);
+        return (bool) config('bot_guard.enabled', false);
+    }
+
+    /** Вход по паролю не режется lock-ом, пока guard выключен. */
+    public function isLoginBlocked(User $user): bool
+    {
+        if (! $this->enabled()) {
+            return false;
+        }
+
+        return $this->isLocked((int) $user->user_id);
     }
 
     public function isExempt(?User $user): bool

@@ -81,6 +81,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Поиск клиентов (JSON с телефонами) — узкое горло против скрейперов
         RateLimiter::for('persons-search', function (Request $request) {
+            if (! config('bot_guard.enabled')) {
+                return Limit::none();
+            }
             $id = optional($request->user())->user_id ?: $request->ip();
 
             return Limit::perMinute((int) config('bot_guard.max_search_per_minute', 12))->by('persons-search:'.$id);
@@ -88,6 +91,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Карточки заказов / клиентов
         RateLimiter::for('client-cards', function (Request $request) {
+            if (! config('bot_guard.enabled')) {
+                return Limit::none();
+            }
             $id = optional($request->user())->user_id ?: $request->ip();
 
             return Limit::perMinute((int) config('bot_guard.max_sensitive_per_minute', 22))->by('client-cards:'.$id);

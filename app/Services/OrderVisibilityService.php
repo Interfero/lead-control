@@ -61,6 +61,18 @@ class OrderVisibilityService
             return Order::allStatusCodes();
         }
 
+        // Директор филиала, регдиректор и старший менеджер не ставят «Проверка»
+        if ($user->hasAnyRole(['branch_head', 'regional_director', 'senior_manager'])) {
+            return [
+                'pending',
+                'on_way',
+                'in_progress',
+                'in_progress_sd',
+                'completed',
+                'rejected',
+            ];
+        }
+
         // Город не ставит отмены КЦ/город — только видит
         return [
             'pending',

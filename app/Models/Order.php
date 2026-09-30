@@ -85,14 +85,16 @@ class Order extends Model
     public const DISPATCHER_ARCHIVE_DAYS = 7;
 
     /**
-     * Порог «Оплачено клиентом»: с этой суммы (включительно) при проведении
-     * нужен хотя бы один документ. Ниже — документы не обязательны.
+     * Документы обязательны при проведении «Готов» (оплата > 0).
+     * Оплата 0 — «Отказ», документы не нужны.
      */
-    public const DOCUMENTS_REQUIRED_FROM_PAID = 3000;
+    public const DOCUMENTS_REQUIRED_FROM_PAID = 1;
+
+    public const DOCUMENT_CATEGORY_RECEIPTS = 'receipts';
 
     public static function documentsRequiredForPaidAmount(null|int|string $paidAmount): bool
     {
-        return (int) $paidAmount >= self::DOCUMENTS_REQUIRED_FROM_PAID;
+        return (int) $paidAmount > 0;
     }
 
     /** @return list<string> */
@@ -533,7 +535,7 @@ class Order extends Model
      */
     public function isClosedStatus(): bool
     {
-        return in_array($this->order_status, ['completed', 'cancelled_cc', 'cancelled_city']);
+        return in_array($this->order_status, ['completed', 'rejected', 'cancelled_cc', 'cancelled_city'], true);
     }
 
     /** Партнёрский заказ (SuperPart или источник из каталога партнёров). */

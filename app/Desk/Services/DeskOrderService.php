@@ -133,10 +133,21 @@ class DeskOrderService
             $errors[] = 'Заполните «Запчасти»';
         }
 
-        $docs = $cached->documents ?? [];
+        $docs = is_array($cached->documents) ? $cached->documents : [];
         $paid = (int) ($cached->paid_amount ?? 0);
-        if ($paid >= 3000 && (! is_array($docs) || count($docs) < 1)) {
-            $errors[] = 'При сумме от 3000 ₽ нужен хотя бы один документ (можно загрузить в карточке CRM)';
+        if ($paid > 0) {
+            if (count($docs) < 1) {
+                $errors[] = 'Загрузите хотя бы один документ. «Готов» без документов закрыть нельзя';
+            }
+            $parts = (int) ($cached->parts_amount ?? 0);
+            if ($parts > 0) {
+                $hasReceipt = collect($docs)->contains(
+                    fn ($d) => (string) (($d['category'] ?? $d['document_category'] ?? '') ?: '') === 'receipts'
+                );
+                if (! $hasReceipt) {
+                    $errors[] = 'Указан расход — приложите чек расхода. Фото запчастей недостаточно';
+                }
+            }
         }
 
         if ($errors !== []) {

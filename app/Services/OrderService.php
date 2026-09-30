@@ -83,14 +83,33 @@ class OrderService
     }
     
     /**
-     * Расчёт суммы к сдаче (проведённая - зарплата мастера)
+     * Сумма, которую мастер уже отдал клиенту при возврате (доля «с мастера»)
+     * по закрытым операциям возврата, привязанным к заказу. Возврат не меняет
+     * amount_paid/amount_comp заказа (это отдельная, уже закрытая кассовая
+     * операция) — поэтому «к сдаче» без этой поправки навсегда остаётся
+     * завышенной после возврата.
+     */
+    public function refundedFromMasterTotal(Order $order): int
+    {
+        return (int) CfmOperation::query()
+            ->join('cfm_categories', 'cfm_categories.cfm_cat_id', '=', 'cfm_operations.cfm_cat_id')
+            ->where('cfm_operations.related_order_id', $order->order_id)
+            ->where('cfm_categories.cfm_cat_name', $this->cfmService->clientRefundCategoryName())
+            ->whereNotNull('cfm_operations.cfm_closed_at')
+            ->sum('cfm_operations.amount_from_master');
+    }
+
+    /**
+     * Расчёт суммы к сдаче (проведённая - зарплата мастера - уже отданное
+     * мастером клиенту при возврате).
      */
     public function calculateAmountToPay(Order $order): int
     {
         $netAmount = $this->getNetAmount($order);
         $masterSalary = $this->calculateMasterSalary($order);
-        
-        return $netAmount - $masterSalary;
+        $refundedFromMaster = $this->refundedFromMasterTotal($order);
+
+        return $netAmount - $masterSalary - $refundedFromMaster;
     }
 
     /**
@@ -137,30 +156,33 @@ class OrderService
      */
     public function complete(Order $order, int $userId): void
     {
+        $check = $this->canComplete($order);
+        if (! ($check['can'] ?? false)) {
+            throw new \RuntimeException(implode('. ', $check['errors'] ?? ['Нельзя провести заказ']));
+        }
+
         DB::transaction(function () use ($order, $userId) {
             $cancelledStatuses = ['cancelled_cc', 'cancelled_city'];
-            $isCancelled = in_array($order->order_status, $cancelledStatuses);
-            
-            // Для не-отменённых заказов ВСЕГДА устанавливаем статус completed
+            $isCancelled = in_array($order->order_status, $cancelledStatuses, true);
+            $paid = (int) ($order->amount_paid ?? 0);
+            $isRefusal = ! $isCancelled && $paid <= 0;
+
             $order->order_closed_by = $userId;
             $order->order_closed_at = now();
-            
-            if (!$isCancelled) {
-                $order->order_status = 'completed'; // Автоматически меняем статус
+
+            if (! $isCancelled) {
+                $order->order_status = $isRefusal ? 'rejected' : 'completed';
                 $order->status_changed_at = now();
-                
-                // Гарантия свыше 7500 р. → переводим в повтор
+
                 $netAmount = $this->getNetAmount($order);
                 if ($order->order_type === 'warranty' && $netAmount > 7500) {
                     $order->order_type = 'repeat';
                 }
             }
-            
+
             $order->save();
-            
-            // Для отменённых заказов финансовые операции НЕ создаются
-            // (заказ не был выполнен, денег не поступило)
-            if ($isCancelled) {
+
+            if ($isCancelled || $isRefusal) {
                 return;
             }
             
@@ -186,6 +208,33 @@ class OrderService
     }
 
     /**
+     * Снять проведение: касса по заявке удаляется, «Готов»/«Отказ» → «В работе».
+     */
+    public function reopen(Order $order): void
+    {
+        if (! $order->order_closed_at) {
+            throw new \RuntimeException('Заказ не был проведён');
+        }
+
+        DB::transaction(function () use ($order) {
+            CfmOperation::where('related_order_id', $order->order_id)->delete();
+
+            $order->order_closed_at = null;
+            $order->order_closed_by = null;
+
+            if (in_array((string) $order->order_status, ['completed', 'rejected'], true)) {
+                $order->order_status = 'in_progress';
+                $order->status_changed_at = now();
+                if ($order->in_progress_at === null) {
+                    $order->in_progress_at = now();
+                }
+            }
+
+            $order->save();
+        });
+    }
+
+    /**
      * Пересоздать кассовую операцию по уже проведённому заказу (после правки сумм / профильности).
      */
     public function refreshClosedOrderCfm(Order $order, int $userId): void
@@ -194,7 +243,7 @@ class OrderService
             return;
         }
 
-        if (in_array($order->order_status, ['cancelled_cc', 'cancelled_city'], true)) {
+        if (in_array($order->order_status, ['cancelled_cc', 'cancelled_city', 'rejected'], true)) {
             return;
         }
 
@@ -260,8 +309,8 @@ class OrderService
     
     /**
      * Проверка возможности проведения
-     * Проведение доступно для любого статуса (кроме уже проведённых)
-     * При проведении статус автоматически меняется на "completed" (кроме отменённых)
+     * Проведение доступно для любого статуса (кроме уже проведённых).
+     * Оплата 0 → «Отказ»; иначе «Готов». Отмены КЦ/филиала не меняют статус.
      */
     public function canComplete(Order $order): array
     {
@@ -276,30 +325,39 @@ class OrderService
         }
         
         $cancelledStatuses = ['cancelled_cc', 'cancelled_city'];
-        $isCancelled = in_array($order->order_status, $cancelledStatuses);
-        
-        // Для отменённых заказов: мастер НЕ должен быть назначен
+        $isCancelled = in_array($order->order_status, $cancelledStatuses, true);
+
         if ($isCancelled) {
             if ($order->master_id) {
                 $errors[] = 'Отмена: мастер не должен быть назначен (заказ не выполнялся)';
             }
+
             return [
                 'can' => empty($errors),
                 'errors' => $errors,
             ];
         }
-        
-        // Для обычных заказов требуем мастера
+
         if (! $order->master_id) {
             $errors[] = 'Не назначен мастер';
         }
 
-        // Документы: обязательны при «Оплачено» >= 3000 ₽ (как в Levelion / Едином окне)
         $paid = (int) ($order->amount_paid ?? 0);
-        if (Order::documentsRequiredForPaidAmount($paid)) {
+        if ($paid > 0) {
             $order->loadMissing('documents');
             if ($order->documents->count() < 1) {
-                $errors[] = 'При сумме от '.Order::DOCUMENTS_REQUIRED_FROM_PAID.' ₽ загрузите хотя бы один документ';
+                // CLOSE_DEL_ANY_PHOTO: «Готов» без фото закрыть нельзя; удалять фото можно и после закрытия.
+                $errors[] = 'Загрузите хотя бы один документ. «Готов» без документов закрыть нельзя';
+            }
+
+            $comp = (int) ($order->amount_comp ?? 0);
+            if ($comp > 0) {
+                $hasReceipt = $order->documents->contains(
+                    fn ($doc) => ($doc->document_category ?? '') === Order::DOCUMENT_CATEGORY_RECEIPTS
+                );
+                if (! $hasReceipt) {
+                    $errors[] = 'Указан расход — приложите чек расхода. Фото запчастей недостаточно';
+                }
             }
         }
 

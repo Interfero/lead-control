@@ -6,6 +6,7 @@ use App\Models\City;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Api\OrderLeadPresenter;
+use App\Services\OrderVisibilityService;
 use App\Services\OrgTreeService;
 use App\Support\OrderLeadSource;
 use App\Support\OrderAddressReveal;
@@ -309,13 +310,18 @@ class DeskApiController extends Controller
             return response()->json(['message' => 'Order already closed'], 422);
         }
 
-        $allowed = array_keys(Order::getStatusLabels());
+        $allowed = $this->deskSettableStatuses($user, $order);
         $validated = $request->validate([
             'order_status' => ['required_without:raw_status', 'nullable', 'string', Rule::in($allowed)],
             'raw_status' => ['required_without:order_status', 'nullable', 'string', Rule::in($allowed)],
         ]);
 
         $status = $validated['order_status'] ?? $validated['raw_status'];
+        if (in_array((string) $status, ['completed', 'rejected', 'cancelled_cc', 'cancelled_city'], true)) {
+            return response()->json([
+                'message' => 'Закрытие только через проведение: нужен документ, при расходе — чек, оплата 0 = отказ',
+            ], 422);
+        }
         $order->order_status = $status;
         $order->save();
 
@@ -349,6 +355,14 @@ class DeskApiController extends Controller
 
         $fill = [];
         if (! empty($validated['raw_status'])) {
+            if (in_array((string) $validated['raw_status'], ['completed', 'rejected', 'cancelled_cc', 'cancelled_city'], true)) {
+                return response()->json([
+                    'message' => 'Закрытие только через проведение: нужен документ, при расходе — чек, оплата 0 = отказ',
+                ], 422);
+            }
+            if ($user && ! in_array((string) $validated['raw_status'], $this->deskSettableStatuses($user, $order), true)) {
+                return response()->json(['message' => 'Этот статус нельзя поставить'], 422);
+            }
             $fill['order_status'] = $validated['raw_status'];
         }
         if (array_key_exists('paid_amount', $validated) && $validated['paid_amount'] !== null) {
@@ -436,10 +450,6 @@ class DeskApiController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if ($order->isClosedStatus()) {
-            return response()->json(['message' => 'Заказ уже закрыт'], 422);
-        }
-
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:10240', \App\Models\Document::orderPhotoMimeValidationRule()],
             'category' => 'required|in:contract,receipts,parts_photos,storage_receipt',
@@ -488,6 +498,7 @@ class DeskApiController extends Controller
                 'id' => (string) $doc->document_id,
                 'name' => $doc->file_name,
                 'category' => $doc->document_category,
+                'can_delete' => $doc->isDeletableOnOrder($order),
             ],
         ]);
     }
@@ -529,10 +540,6 @@ class DeskApiController extends Controller
         if ($user && ! $this->userCanSeeOrder($user, $order)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
-        if ($order->isClosedStatus()) {
-            return response()->json(['message' => 'Заказ уже закрыт'], 422);
-        }
-
         $doc = \App\Models\Document::query()
             ->where('document_id', $documentId)
             ->where('documentable_type', Order::class)
@@ -541,12 +548,28 @@ class DeskApiController extends Controller
         if (! $doc) {
             return response()->json(['message' => 'Not found'], 404);
         }
+        if (! $doc->isDeletableOnOrder($order)) {
+            return response()->json([
+                'message' => 'Это фото удалить нельзя',
+            ], 422);
+        }
+
         if (\Illuminate\Support\Facades\Storage::disk('local')->exists($doc->file_path)) {
             \Illuminate\Support\Facades\Storage::disk('local')->delete($doc->file_path);
         }
         $doc->delete();
 
-        return response()->json(['ok' => true]);
+        $order->load('documents');
+
+        return response()->json([
+            'ok' => true,
+            'documents' => $order->documents->map(fn ($d) => [
+                'id' => (string) $d->document_id,
+                'name' => $d->file_name ?? ('doc-'.$d->document_id),
+                'category' => (string) ($d->document_category ?? 'contract'),
+                'can_delete' => $d->isDeletableOnOrder($order),
+            ])->values()->all(),
+        ]);
     }
 
     private function resolveUser(Request $request): ?User
@@ -644,6 +667,24 @@ class DeskApiController extends Controller
     }
 
     /**
+     * Статусы, которые роль может выставить в едином окне (текущий статус заявки тоже оставляем).
+     *
+     * @return list<string>
+     */
+    private function deskSettableStatuses(?User $user, Order $order): array
+    {
+        $allowed = $user
+            ? app(OrderVisibilityService::class)->getSettableStatuses($user)
+            : array_keys(Order::getStatusLabels());
+
+        if ($order->order_status && ! in_array((string) $order->order_status, $allowed, true)) {
+            $allowed = array_values(array_unique(array_merge([(string) $order->order_status], $allowed)));
+        }
+
+        return $allowed;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function serializeOrder(Order $order, bool $lite = false): array
@@ -669,6 +710,7 @@ class DeskApiController extends Controller
                 'id' => (string) $d->document_id,
                 'name' => $d->file_name ?? ('doc-'.$d->document_id),
                 'category' => (string) ($d->document_category ?? 'contract'),
+                'can_delete' => $d->isDeletableOnOrder($order),
             ])->values()->all();
         }
 

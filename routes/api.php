@@ -66,6 +66,9 @@ Route::prefix('v1')
         Route::patch('/partner-orders/{order_id}/status', [PartnerOrderController::class, 'statusUpdate'])
             ->whereNumber('order_id')
             ->name('api.v1.partner-orders.status.update');
+        Route::patch('/partner-orders/{order_id}/description', [PartnerOrderController::class, 'updateDescription'])
+            ->whereNumber('order_id')
+            ->name('api.v1.partner-orders.description.update');
         Route::get('/partner-orders/{order_id}', [PartnerOrderController::class, 'show'])
             ->whereNumber('order_id')
             ->name('api.v1.partner-orders.show');

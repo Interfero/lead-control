@@ -94,7 +94,7 @@ class DeskController extends Controller
             }
         }
 
-        $settable = array_keys(Order::getStatusLabels());
+        $settable = app(\App\Services\OrderVisibilityService::class)->getSettableStatuses($request->user());
         $closed = ['completed', 'cancelled_cc', 'cancelled_city', 'rejected'];
         $settable = array_values(array_diff($settable, $closed));
 

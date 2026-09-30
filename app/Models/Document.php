@@ -100,4 +100,12 @@ class Document extends Model
 
         return str_starts_with($mimeType, 'image/');
     }
+
+    /**
+     * Фото заявки можно удалить и после закрытия. CLOSE_DEL_ANY_PHOTO
+     */
+    public function isDeletableOnOrder(Order $order): bool
+    {
+        return true;
+    }
 }

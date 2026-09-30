@@ -80,15 +80,7 @@ class DocumentController extends Controller
                     'message' => 'Генеральный директор не может загружать документы к заказам',
                 ], 403);
             }
-            
-            $isClosedOrder = in_array($documentable->order_status, ['completed', 'cancelled_cc', 'cancelled_city'], true);
-            if ($isClosedOrder && ! $user->hasAnyRole(['developer', 'senior_dispatcher'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Нельзя добавлять документы к завершённому или отменённому заказу',
-                ], 403);
-            }
-            
+
             // Проверка доступа к городу заказа
             if (!$user->hasRole('developer') && !$user->hasAccessToCity($documentable->address->city_id)) {
                 abort(403);
@@ -366,6 +358,9 @@ class DocumentController extends Controller
                     'file_name' => $document->file_name,
                     'human_size' => $document->human_size,
                     'file_mime' => $document->file_mime,
+                    'can_delete' => $documentable instanceof Order
+                        ? $document->isDeletableOnOrder($documentable)
+                        : true,
                 ]
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -414,11 +409,17 @@ class DocumentController extends Controller
             $order = Order::find($document->documentable_id);
             $gmSyncOrder = $order;
             
-            // Проверка статуса заказа - запрещаем удаление документов для завершённых или отменённых заказов
-            if ($order && in_array($order->order_status, ['completed', 'cancelled_cc', 'cancelled_city'])) {
+            if ($user->hasRole('general_director')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Нельзя удалять документы из завершённого или отменённого заказа',
+                    'message' => 'Генеральный директор не может удалять документы заказов',
+                ], 403);
+            }
+
+            if ($order && ! $document->isDeletableOnOrder($order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Это фото удалить нельзя',
                 ], 403);
             }
             

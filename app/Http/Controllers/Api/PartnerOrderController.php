@@ -182,10 +182,43 @@ class PartnerOrderController extends Controller
             'order_status' => ['required', 'string', Rule::in($allowed)],
         ]);
 
+        if (in_array($validated['order_status'], ['completed', 'rejected', 'cancelled_cc', 'cancelled_city'], true)) {
+            return response()->json([
+                'message' => 'Закрытие заказа только через проведение',
+            ], 422);
+        }
+
         $order->order_status = $validated['order_status'];
         $order->save();
 
         return response()->json($this->presenter->presentStatus($order->fresh('address')));
+    }
+
+    /**
+     * Партнёр (SuperPart) обновляет описание заказа — присылает уже полный
+     * накопленный текст (append-only журнал ведёт SuperPart на своей
+     * стороне, сюда прилетает готовый результат целиком, не дельта).
+     * В отличие от statusUpdate() намеренно НЕ блокируем правку для
+     * закрытых заказов — это просто текстовое поле-заметка, не влияет на
+     * статус/деньги. По той же причине (см. OrderController::update() —
+     * order_adds не входит в $snapshotFieldChanged) снапшот в outbox не
+     * ставим — это не поле, за которым СуперПартс следит через синк.
+     */
+    public function updateDescription(Request $request, int $order_id): JsonResponse
+    {
+        $order = Order::query()->with(['address.city', 'persons.phones', 'master', 'source'])->find($order_id);
+        if (! $order) {
+            return response()->json(['message' => 'Заказ не найден'], 404);
+        }
+
+        $validated = $request->validate([
+            'order_adds' => ['required', 'string', 'max:65535'],
+        ]);
+
+        $order->order_adds = $validated['order_adds'];
+        $order->save();
+
+        return response()->json($this->presenter->present($order->fresh(['address.city', 'persons.phones', 'master', 'source'])));
     }
 
     /**

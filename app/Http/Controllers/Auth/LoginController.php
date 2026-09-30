@@ -48,7 +48,7 @@ class LoginController extends Controller
         $credentials['is_active'] = true;
 
         $pendingUser = User::query()->where('email', $email)->first();
-        if ($pendingUser && $this->botGuard->isLocked((int) $pendingUser->user_id)) {
+        if ($pendingUser && $this->botGuard->isLoginBlocked($pendingUser)) {
             $sec = $this->botGuard->lockRemainingSeconds((int) $pendingUser->user_id);
             $mins = max(1, (int) ceil($sec / 60));
             throw ValidationException::withMessages([

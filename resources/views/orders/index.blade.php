@@ -450,27 +450,8 @@
                             >
                                 <td class="orders-id-cell">
                                     @php
-                                        $addr = $order->address;
-                                        $city = $addr?->city?->city_name ?? '';
-                                        $street = $addr?->street ?? '';
-                                        $house = $addr?->house ?? '';
-                                        $flat = $addr?->flat ?? '';
-                                        $addressFormatted = $city ? 'г. ' . $city . ', ул. ' . $street . ', ' . $house . ($flat ? ', кв.' . $flat : '') : '';
-                                        $equipmentLabel = $order->equipment_type ? (\App\Models\Order::EQUIPMENT_TYPES[$order->equipment_type] ?? $order->equipment_type) : '';
                                         $copyInfo = [
-                                            'id' => $order->order_id,
-                                            'type' => $order->order_type,
-                                            'core' => $order->order_core,
-                                            'address_formatted' => $addressFormatted,
-                                            'equipment_type_label' => $equipmentLabel,
-                                            'source_name' => $order->source?->display_label ?? '',
-                                            'source_phone' => $order->source?->source_phone ?? '',
-                                            'order_adds' => $order->order_adds ?? '',
-                                            'rush' => $order->order_adds && stripos($order->order_adds, 'поспешить') !== false,
-                                            'datetime' => $order->datetime_order?->format('d.m.Y') ?? '',
-                                            'time' => $order->datetime_order?->format('H:i') ?? '',
-                                            'person_name' => $order->persons->first()?->person_name ?? '',
-                                            'person_age' => $order->persons->first()?->person_age ?? '',
+                                            'copy_text' => \App\Support\OrderCopyFormatter::format($order),
                                         ];
                                     @endphp
                                     <span class="orders-id-cell__actions">
@@ -676,27 +657,11 @@
                 const dataEl = root.querySelector('.copy-data');
                 if (!dataEl) return;
                 const d = JSON.parse(dataEl.textContent);
-                const typeLabels = { new: 'Впервые', repeat: 'Повтор', warranty: 'Гарантия' };
-                const coreLabels = { core: 'проф.', non_core: 'непроф.', other: 'проч.' };
-                const typeStr = typeLabels[d.type] || d.type;
-                const coreStr = coreLabels[d.core] || d.core;
-                const dateTimeStr = [d.datetime, d.time].filter(Boolean).join(' ') ? d.datetime + 'г. ' + d.time : '';
-                const personStr = [d.person_name, d.person_age].filter(Boolean).join(',');
-                const rush = !!d.rush || /поспешить/i.test(d.order_adds || '');
-                const adds = String(d.order_adds || '').replace(/поспешить\.?\s*/gi, '').trim();
-                const lines = [
-                    'Заказ №' + d.id,
-                    typeStr + ', ' + coreStr,
-                    d.source_name || '',
-                    d.source_phone ? ('Линия: ' + d.source_phone) : '',
-                    d.equipment_type_label || '',
-                    d.address_formatted || '',
-                    adds,
-                    rush ? 'Поспешить' : '',
-                    personStr,
-                    dateTimeStr,
-                ].filter(Boolean);
-                const text = lines.join('\n');
+                const text = String(d.copy_text || '').trim();
+                if (!text) {
+                    showCopyFeedback(false, 'Ошибка при копировании');
+                    return;
+                }
                 copyTextToClipboard(text)
                     .then(() => {
                         showCopyFeedback(true, 'Информация скопирована в буфер обмена');

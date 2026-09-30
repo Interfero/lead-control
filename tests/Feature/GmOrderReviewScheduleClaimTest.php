@@ -7,6 +7,7 @@ use App\Models\CfmCategory;
 use App\Models\CfmOperation;
 use App\Models\City;
 use App\Models\Complaint;
+use App\Models\Document;
 use App\Models\Order;
 use App\Models\Person;
 use App\Models\Role;
@@ -37,6 +38,7 @@ class GmOrderReviewScheduleClaimTest extends TestCase
     public function test_review_from_in_progress_sd_closes_completed_not_review(): void
     {
         [$master, $order] = $this->masterWithOrder('in_progress_sd');
+        $this->attachOrderDoc($order, $master);
 
         $response = $this->gmJson('POST', '/api/v1/gm/orders/'.$order->order_id.'/review', $master, [
             'amountPaidRub' => 5000,
@@ -67,6 +69,7 @@ class GmOrderReviewScheduleClaimTest extends TestCase
     public function test_review_from_in_progress_is_allowed(): void
     {
         [$master, $order] = $this->masterWithOrder('in_progress');
+        $this->attachOrderDoc($order, $master);
 
         $this->gmJson('POST', '/api/v1/gm/orders/'.$order->order_id.'/review', $master, [
             'amountPaidRub' => 1000,
@@ -80,6 +83,7 @@ class GmOrderReviewScheduleClaimTest extends TestCase
     public function test_review_from_existing_review_closes_completed_not_409(): void
     {
         [$master, $order] = $this->masterWithOrder('review');
+        $this->attachOrderDoc($order, $master);
 
         $this->gmJson('POST', '/api/v1/gm/orders/'.$order->order_id.'/review', $master, [
             'amountPaidRub' => 5000,
@@ -93,6 +97,7 @@ class GmOrderReviewScheduleClaimTest extends TestCase
     public function test_review_repeat_on_closed_returns_409(): void
     {
         [$master, $order] = $this->masterWithOrder('in_progress_sd');
+        $this->attachOrderDoc($order, $master);
 
         $this->gmJson('POST', '/api/v1/gm/orders/'.$order->order_id.'/review', $master, [
             'amountPaidRub' => 5000,
@@ -157,6 +162,50 @@ class GmOrderReviewScheduleClaimTest extends TestCase
 
         $this->gmJson('GET', '/api/v1/gm/orders/'.$foreignOrder->order_id, $owner)
             ->assertNotFound();
+    }
+
+    public function test_review_without_documents_returns_422(): void
+    {
+        [$master, $order] = $this->masterWithOrder('in_progress');
+
+        $this->gmJson('POST', '/api/v1/gm/orders/'.$order->order_id.'/review', $master, [
+            'amountPaidRub' => 5000,
+            'amountCompRub' => 0,
+            'masterComment' => 'без документов',
+        ])->assertStatus(422);
+
+        $this->assertNull($order->fresh()->order_closed_at);
+        $this->assertSame('in_progress', $order->fresh()->order_status);
+    }
+
+    public function test_review_paid_zero_closes_as_rejected(): void
+    {
+        [$master, $order] = $this->masterWithOrder('in_progress');
+        $this->attachOrderDoc($order, $master);
+
+        $this->gmJson('POST', '/api/v1/gm/orders/'.$order->order_id.'/review', $master, [
+            'amountPaidRub' => 0,
+            'amountCompRub' => 0,
+            'masterComment' => 'отказ',
+        ])->assertOk()->assertJsonPath('order.status', 'rejected');
+
+        $this->assertSame('rejected', $order->fresh()->order_status);
+        $this->assertSame(0, CfmOperation::query()->where('related_order_id', $order->order_id)->count());
+    }
+
+    private function attachOrderDoc(Order $order, User $user, string $category = 'contract'): void
+    {
+        $doc = new Document([
+            'documentable_type' => Order::class,
+            'documentable_id' => $order->order_id,
+            'document_category' => $category,
+            'file_name' => 'gm-doc.jpg',
+            'file_path' => 'documents/gm-test.jpg',
+            'file_mime' => 'image/jpeg',
+            'file_size' => 100,
+        ]);
+        $doc->uploaded_by = $user->user_id;
+        $doc->save();
     }
 
     /**

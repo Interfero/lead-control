@@ -8,7 +8,8 @@
  */
 return [
 
-    'enabled' => (bool) env('BOT_GUARD_ENABLED', true),
+    /** Выключено. Код не удалять: включение — BOT_GUARD_ENABLED=true в .env. */
+    'enabled' => filter_var(env('BOT_GUARD_ENABLED', false), FILTER_VALIDATE_BOOL),
 
     /** Не кикать роль developer (отладка). Остальные — под guard. */
     'exempt_roles' => array_filter(array_map('trim', explode(',', (string) env('BOT_GUARD_EXEMPT_ROLES', 'developer')))),

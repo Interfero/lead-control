@@ -21,7 +21,7 @@ class RefreshSatelliteOrderCfmCommand extends Command
 
         $query = Order::with(['address.city.parentCity', 'persons.addresses.city', 'cfmOperations'])
             ->whereNotNull('order_closed_at')
-            ->whereNotIn('order_status', ['cancelled_cc', 'cancelled_city'])
+            ->whereNotIn('order_status', ['cancelled_cc', 'cancelled_city', 'rejected'])
             ->orderBy('order_id');
 
         if ($orderId) {

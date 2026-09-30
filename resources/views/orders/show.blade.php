@@ -4,9 +4,8 @@
 
 @section('content')
 @php
-    $isClosedOrderStatus = in_array($order->order_status, ['completed', 'cancelled_cc', 'cancelled_city'], true);
-    $canUploadDocsOnClosed = auth()->user()->hasAnyRole(['developer', 'senior_dispatcher', 'general_director']);
-    $canEditDocuments = ! $isClosedOrderStatus || $canUploadDocsOnClosed;
+    $canAddDocuments = ! auth()->user()->hasRole('general_director');
+    $canChangeStatus = $isEditable && ! $order->order_closed_at;
     $activityLogService = app(\App\Services\OrderActivityLogService::class);
 @endphp
 
@@ -337,7 +336,7 @@
                         
                         <div class="order-sidebar-section">
                             <div class="order-sidebar-section-title">📍 Адрес</div>
-                            @if($isEditable && $canEditCityFields && !($canEditCallbackClientData ?? false) && $clientCities->isNotEmpty())
+                            @if($isEditable && ($canChangeOrderCity ?? false) && !($canEditCallbackClientData ?? false) && $clientCities->isNotEmpty())
                                 <div class="form-group" style="margin-bottom: 0.5rem;">
                                     <label class="form-label">Город *</label>
                                     <select name="address_city_id" class="form-input" form="orderForm" required>
@@ -394,7 +393,7 @@
                                 </div>
                             @endif
                             <div class="order-sidebar-muted {{ in_array('source_id', $highlightFields) ? 'source-row-pending' : '' }}" style="margin-top: 0.25rem;">
-                                @if($isEditable && ($canEditCityFields || ($canEditSource ?? false)))
+                                @if($isEditable && ($canChangeOrderSource ?? false))
                                     <label class="form-label" style="margin-bottom: 0.25rem;">Источник заказа (РК)</label>
                                     <select name="source_id" class="form-input" form="orderForm">
                                         <option value="">Не указан</option>
@@ -417,13 +416,16 @@
                     {{-- Статус заказа (селект из устанавливаемых для роли) --}}
                     <div class="order-sidebar-section">
                         <label class="form-label" style="margin-bottom: 0.5rem;">Статус заказа *</label>
-                        <select name="order_status" class="form-input" form="orderForm" required {{ !$isEditable ? 'disabled' : '' }}>
+                        <select name="order_status" class="form-input" form="orderForm" @if($canChangeStatus) required @endif {{ !$canChangeStatus ? 'disabled' : '' }}>
                             @foreach($statusesForSelect as $statusValue)
                                 <option value="{{ $statusValue }}" {{ $order->order_status == $statusValue ? 'selected' : '' }}>
                                     {{ $statusLabels[$statusValue] ?? $statusValue }}
                                 </option>
                             @endforeach
                         </select>
+                        @if($order->order_closed_at)
+                            <p class="text-sm text-muted-foreground" style="margin-top: 0.35rem;">После закрытия статус менять нельзя. Сначала откройте заказ.</p>
+                        @endif
                     </div>
                     <div class="order-sidebar-section">
                     {{-- Кнопки действий --}}
@@ -485,7 +487,7 @@
                         @if($order->order_closed_at && ($canReopenClosedOrder ?? false))
                             <form method="POST" action="{{ route('orders.reopen', $order->order_id) }}" style="margin-top: 0.5rem;">
                                 @csrf
-                                <button type="submit" class="btn btn-warning btn-order-compact" style="width: 100%;" onclick="return confirm('Открыть заказ для редактирования? Связанные кассовые операции будут удалены.')">
+                                <button type="submit" class="btn btn-warning btn-order-compact" style="width: 100%;" onclick="return confirm('Открыть заказ? Статус станет «В работе». Связанные кассовые операции будут удалены.')">
                                     {!! icon('edit') !!} Открыть заказ
                                 </button>
                             </form>
@@ -506,12 +508,12 @@
     {{-- Документы заказа --}}
     <section class="order-show-documents" aria-label="Документы заказа">
             <h2 class="order-documents-heading">{!! icon('document') !!} Документы заказа</h2>
-            <p class="text-sm text-muted-foreground mb-3">Обязательны при проведении, если «Оплачено» от {{ \App\Models\Order::DOCUMENTS_REQUIRED_FROM_PAID }}&nbsp;₽ включительно. Ниже порога — можно провести без документов.</p>
+            <p class="text-sm text-muted-foreground mb-3">«Готов» (оплата больше 0) — нужен хотя бы один фотодокумент; при расходе — чек расхода, не фото запчастей. Оплата 0 ₽ закрывает как «Отказ», документы не нужны. После закрытия статус не меняется; фото можно добавить и удалить.</p>
             <div class="order-show-docs-grid mb-6">
                 {{-- Договор --}}
                 <div class="order-doc-panel">
                     <h3 class="order-documents-heading" style="font-size: 1rem;">{!! icon('document') !!} Договор</h3>
-                    @if($canEditDocuments)
+                    @if($canAddDocuments)
                     <div class="dropzone" data-category="contract" onclick="openFileDialog('contract')">
                         <div class="dropzone-inner">
                             <div class="dropzone-emoji">📄</div>
@@ -522,7 +524,7 @@
                     <input type="file" id="file-contract" style="display: none;" multiple accept="{{ $orderPhotoAccept }}" onchange="uploadDocuments('contract', this.files)">
                     @else
                     <div class="order-doc-disabled-placeholder">
-                        Загрузка документов недоступна для завершённого или отменённого заказа
+                        Генеральный директор не загружает документы к заказам
                     </div>
                     @endif
                     <div id="files-contract" class="files-list order-files-list">
@@ -535,7 +537,7 @@
                 {{-- Чеки на комплектующие/расходы --}}
                 <div class="order-doc-panel">
                     <h3 class="order-documents-heading" style="font-size: 1rem;">{!! icon('document') !!} Чеки на комплектующие/расходы</h3>
-                    @if($canEditDocuments)
+                    @if($canAddDocuments)
                     <div class="dropzone" data-category="receipts" onclick="openFileDialog('receipts')">
                         <div class="dropzone-inner">
                             <div class="dropzone-emoji">🧾</div>
@@ -546,7 +548,7 @@
                     <input type="file" id="file-receipts" style="display: none;" multiple accept="{{ $orderPhotoAccept }}" onchange="uploadDocuments('receipts', this.files)">
                     @else
                     <div class="order-doc-disabled-placeholder">
-                        Загрузка документов недоступна для завершённого или отменённого заказа
+                        Генеральный директор не загружает документы к заказам
                     </div>
                     @endif
                     <div id="files-receipts" class="files-list order-files-list">
@@ -561,7 +563,7 @@
                 {{-- Фото запчастей/комплектующих --}}
                 <div class="order-doc-panel">
                     <h3 class="order-documents-heading" style="font-size: 1rem;">{!! icon('document') !!} Фото запчастей/комплектующих</h3>
-                    @if($canEditDocuments)
+                    @if($canAddDocuments)
                     <div class="dropzone" data-category="parts_photos" onclick="openFileDialog('parts_photos')">
                         <div class="dropzone-inner">
                             <div class="dropzone-emoji">📸</div>
@@ -572,7 +574,7 @@
                     <input type="file" id="file-parts_photos" style="display: none;" multiple accept="{{ $orderPhotoAccept }}" onchange="uploadDocuments('parts_photos', this.files)">
                     @else
                     <div class="order-doc-disabled-placeholder">
-                        Загрузка документов недоступна для завершённого или отменённого заказа
+                        Генеральный директор не загружает документы к заказам
                     </div>
                     @endif
                     <div id="files-parts_photos" class="files-list order-files-list">
@@ -586,7 +588,7 @@
                 {{-- Сохранная расписка --}}
                 <div class="order-doc-panel">
                     <h3 class="order-documents-heading" style="font-size: 1rem;">{!! icon('document') !!} Сохранная расписка</h3>
-                    @if($canEditDocuments)
+                    @if($canAddDocuments)
                     <div class="dropzone" data-category="storage_receipt" onclick="openFileDialog('storage_receipt')">
                         <div class="dropzone-inner">
                             <div class="dropzone-emoji">📋</div>
@@ -597,7 +599,7 @@
                     <input type="file" id="file-storage_receipt" style="display: none;" multiple accept="{{ $orderPhotoAccept }}" onchange="uploadDocuments('storage_receipt', this.files)">
                     @else
                     <div class="order-doc-disabled-placeholder">
-                        Загрузка документов недоступна для завершённого или отменённого заказа
+                        Генеральный директор не загружает документы к заказам
                     </div>
                     @endif
                     <div id="files-storage_receipt" class="files-list order-files-list">
@@ -711,46 +713,9 @@
         return `${parts[0]} (${weekday}) ${timeParts}`;
     }
     
-    // Копирование информации о заказе (формат по документу)
+    // Копирование информации о заказе одной строкой для диспетчеров
     function copyOrderInfo() {
-        @php
-            $addr = $order->address;
-            $copyData = [
-                'id' => $order->order_id,
-                'type' => $order->order_type,
-                'core' => $order->order_core,
-                'equipment_type_label' => $order->equipment_type ? (\App\Models\Order::EQUIPMENT_TYPES[$order->equipment_type] ?? $order->equipment_type) : '',
-                'source_name' => $order->source->display_label ?? '',
-                'order_adds' => $order->order_adds ?? '',
-                'address_formatted' => 'г. ' . $addr->city->city_name . ', ул. ' . $addr->street . ', ' . $addr->house . ($addr->flat ? ', кв.' . $addr->flat : ''),
-                'rush' => $order->order_adds && stripos($order->order_adds, 'поспешить') !== false,
-                'datetime' => $order->datetime_order->format('d.m.Y'),
-                'time' => $order->datetime_order->format('H:i'),
-                'person_name' => $order->persons->first()->person_name ?? '',
-                'person_age' => $order->persons->first()->person_age ?? '',
-            ];
-        @endphp
-        const d = @json($copyData);
-        const typeLabels = { 'new': 'Впервые', 'repeat': 'Повтор', 'warranty': 'Гарантия' };
-        const coreLabels = { 'core': 'проф.', 'non_core': 'непроф.', 'other': 'проч.' };
-        const typeStr = typeLabels[d.type] || d.type;
-        const coreStr = coreLabels[d.core] || d.core;
-        const dateTimeStr = d.datetime && d.time ? (d.datetime + 'г. ' + d.time) : '';
-        const personStr = [d.person_name, d.person_age].filter(Boolean).join(',');
-        const rush = !!d.rush || /поспешить/i.test(d.order_adds || '');
-        const adds = String(d.order_adds || '').replace(/поспешить\.?\s*/gi, '').trim();
-        const lines = [
-            'Заказ №' + d.id,
-            typeStr + ', ' + coreStr,
-            d.source_name || '',
-            d.equipment_type_label || '',
-            d.address_formatted || '',
-            adds,
-            rush ? 'Поспешить' : '',
-            personStr,
-            dateTimeStr
-        ].filter(Boolean);
-        const text = lines.join('\n');
+        const text = @json(\App\Support\OrderCopyFormatter::format($order));
         copyTextToClipboard(text).then(() => {
             showCopyFeedback(true, 'Информация скопирована в буфер обмена');
         }).catch(() => {
@@ -995,7 +960,8 @@
                     document_id: {{ $doc->document_id }},
                     file_name: '{{ addslashes($doc->file_name) }}',
                     human_size: '{{ $doc->human_size }}',
-                    file_mime: '{{ $doc->file_mime ?? 'application/octet-stream' }}'
+                    file_mime: '{{ $doc->file_mime ?? 'application/octet-stream' }}',
+                    can_delete: {{ ($canAddDocuments && $doc->isDeletableOnOrder($order)) ? 'true' : 'false' }}
                 });
             @endforeach
         @endif
@@ -1015,9 +981,9 @@
     
     // Открытие диалога выбора файла
     function openFileDialog(category) {
-        const canEditDocs = {{ $canEditDocuments ? 'true' : 'false' }};
-        if (!canEditDocs) {
-            Toast.error('Нельзя добавлять документы к завершённому или отменённому заказу');
+        const canAddDocs = {{ $canAddDocuments ? 'true' : 'false' }};
+        if (!canAddDocs) {
+            Toast.error('Нет прав на добавление документов к заказу');
             return;
         }
         
@@ -1095,18 +1061,27 @@
     async function saveAndCompleteOrder() {
         const paidEl = document.getElementById('amount_paid');
         const paid = paidEl ? (parseInt(paidEl.value, 10) || 0) : {{ (int) ($order->amount_paid ?? 0) }};
-        const docsRequiredFrom = {{ \App\Models\Order::DOCUMENTS_REQUIRED_FROM_PAID }};
-        if (paid >= docsRequiredFrom) {
+        const compEl = document.getElementById('amount_comp');
+        const comp = compEl ? (parseInt(compEl.value, 10) || 0) : {{ (int) ($order->amount_comp ?? 0) }};
+        if (paid > 0) {
             const totalDocs = ['contract', 'receipts', 'parts_photos', 'storage_receipt']
                 .reduce((n, cat) => n + countFilesInCategory(cat), 0);
             if (totalDocs < 1) {
-                Toast.error(`При сумме от ${docsRequiredFrom} ₽ загрузите хотя бы один документ`);
+                Toast.error('Загрузите хотя бы один документ. «Готов» без документов закрыть нельзя');
                 document.querySelector('.order-show-documents')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+            if (comp > 0 && countFilesInCategory('receipts') < 1) {
+                Toast.error('Указан расход — приложите чек расхода. Фото запчастей недостаточно');
+                document.getElementById('files-receipts')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
         }
 
-        if (!confirm('Провести заказ? Статус автоматически изменится на «Готов», сумма попадёт в кассу.')) {
+        const closeMsg = paid <= 0
+            ? 'Провести заказ как «Отказ»? Документы не нужны. В кассу ничего не попадёт.'
+            : 'Провести заказ как «Готов»? Сумма попадёт в кассу.';
+        if (!confirm(closeMsg)) {
             return;
         }
 
@@ -1165,9 +1140,9 @@
         window.__lastUploadError = '';
         if (!file) return false;
         
-        const canEditDocs = {{ $canEditDocuments ? 'true' : 'false' }};
-        if (!canEditDocs) {
-            window.__lastUploadError = 'Нельзя добавлять документы к завершённому или отменённому заказу';
+        const canAddDocs = {{ $canAddDocuments ? 'true' : 'false' }};
+        if (!canAddDocs) {
+            window.__lastUploadError = 'Нет прав на добавление документов к заказу';
             Toast.error(window.__lastUploadError);
             return false;
         }
@@ -1265,8 +1240,9 @@
         const viewUrl = crmUrl(`/documents/${docData.document_id}`);
         const safeName = escapeHtml(docData.file_name);
         
-        const canEditDocs = {{ $canEditDocuments ? 'true' : 'false' }};
-        const deleteButton = canEditDocs 
+        const canAddDocs = {{ $canAddDocuments ? 'true' : 'false' }};
+        const canDeleteThis = canAddDocs && docData.can_delete === true;
+        const deleteButton = canDeleteThis 
             ? `<button type="button" class="order-file-delete file-delete" onclick="event.stopPropagation(); deleteDocument(${docData.document_id}, '${category}')" title="Удалить">✕</button>`
             : '';
         
@@ -1301,12 +1277,6 @@
     
     // Удаление документа
     async function deleteDocument(documentId, category) {
-        const canEditDocs = {{ $canEditDocuments ? 'true' : 'false' }};
-        if (!canEditDocs) {
-            Toast.error('Нельзя удалять документы из завершённого или отменённого заказа');
-            return;
-        }
-        
         if (!confirm('Удалить файл?')) return;
         
         try {
@@ -1363,7 +1333,7 @@
         if (coreDisplay) coreDisplay.value = label;
     }
 
-    @if($canEditDocuments)
+    @if($canAddDocuments)
     document.querySelectorAll('.dropzone').forEach(dropzone => {
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();

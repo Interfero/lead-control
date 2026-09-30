@@ -1216,6 +1216,13 @@ class GmApiService
             'city_adds' => $order->city_adds,
         ]);
 
+        $check = $this->orderService->canComplete($order->fresh(['documents']));
+        if (! ($check['can'] ?? false)) {
+            throw ValidationException::withMessages([
+                'close' => $check['errors'] ?? ['Нельзя закрыть заявку'],
+            ]);
+        }
+
         try {
             $this->orderService->complete($order, (int) $user->user_id);
         } catch (QueryException|\RuntimeException $exception) {

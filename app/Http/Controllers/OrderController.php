@@ -59,6 +59,33 @@ class OrderController extends Controller
         return $user->hasRole('call_center');
     }
 
+    /** SM_LOCK_CITY_SRC_REVIEW: директор, рег и старший менеджер не меняют город и источник. */
+    private function userIsBranchOrRegionalDirector(User $user): bool
+    {
+        return $user->hasAnyRole(['branch_head', 'regional_director', 'senior_manager']);
+    }
+
+    private function userCanChangeOrderCity(User $user): bool
+    {
+        if ($this->userIsBranchOrRegionalDirector($user)) {
+            return false;
+        }
+
+        return $user->hasAnyRole(['developer', 'senior_dispatcher', 'general_director'])
+            || (! $user->hasRole('call_center') && ! $user->hasRole('tech_director'));
+    }
+
+    private function userCanChangeOrderSource(User $user, Order $order): bool
+    {
+        if ($order->order_closed_at || $this->userIsBranchOrRegionalDirector($user)) {
+            return false;
+        }
+
+        return $this->userCanEditSource($user, $order)
+            || $user->hasAnyRole(['developer', 'senior_dispatcher', 'general_director'])
+            || (! $user->hasRole('call_center') && ! $user->hasRole('tech_director'));
+    }
+
     /** Дальний выезд отмечают только диспетчеры КЦ и старший диспетчер. */
     private function userCanEditLongTrip(User $user): bool
     {
@@ -737,8 +764,6 @@ class OrderController extends Controller
 
         $masters = $this->orderMastersForSelect($order);
 
-        $sources = Source::with('city')->where('is_active', true)->orderBy('source_name')->get();
-
         $visibleStatuses = $this->orderVisibility->getVisibleStatuses($user);
         $settableStatuses = $this->orderVisibility->getSettableStatuses($user);
         // Для селекта: устанавливаемые; если текущий статус не в списке (например ген.дир) — добавляем для отображения
@@ -755,7 +780,9 @@ class OrderController extends Controller
         $canEditLongTrip = $this->userCanEditLongTrip($user);
         $canEditCallbackClientData = $this->userCanEditCallbackClientData($user, $order) && $isEditable;
         $canEditSource = $this->userCanEditSource($user, $order);
-        $clientCities = ($canEditCallbackClientData || ($isEditable && $canEditCityFields))
+        $canChangeOrderCity = $this->userCanChangeOrderCity($user);
+        $canChangeOrderSource = $this->userCanChangeOrderSource($user, $order);
+        $clientCities = ($canEditCallbackClientData || ($isEditable && $canChangeOrderCity))
             ? City::where('is_active', true)->orderBy('city_name')->get(['city_id', 'city_name'])
             : collect();
         $callbackPerson = $order->persons->first();
@@ -766,10 +793,15 @@ class OrderController extends Controller
             $cityOpenTime = app(CityOpenTimeService::class)->relevantPayloadForCity($order->address->city_id);
         }
 
+        $sources = $canChangeOrderSource
+            ? Source::with('city')->where('is_active', true)->orderBy('source_name')->get()
+            : collect();
+
         return view('orders.show', compact(
             'order', 'calculations', 'canComplete', 'orderHistory', 'masters', 'sources',
             'isEditable', 'isDeveloper', 'canReopenClosedOrder', 'canEditCcFields', 'canEditScheduleFields', 'canEditCityFields',
-            'canEditLongTrip', 'canEditCallbackClientData', 'canEditSource', 'clientCities', 'callbackPerson', 'callbackPhone',
+            'canEditLongTrip', 'canEditCallbackClientData', 'canEditSource', 'canChangeOrderCity', 'canChangeOrderSource',
+            'clientCities', 'callbackPerson', 'callbackPhone',
             'visibleStatuses', 'settableStatuses', 'statusesForSelect', 'statusLabels',
             'orderCityViewLines', 'canViewActivityLog', 'canViewClientHistory', 'cityOpenTime'
         ));
@@ -792,6 +824,18 @@ class OrderController extends Controller
             abort(403, 'Проведённый заказ нельзя редактировать');
         }
 
+        if ($order->order_closed_at) {
+            $postedStatus = $request->input('order_status');
+            if ($postedStatus !== null && (string) $postedStatus !== (string) $order->order_status) {
+                $msg = 'После закрытия статус менять нельзя. Сначала откройте заказ.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['success' => false, 'message' => $msg], 422);
+                }
+
+                return back()->with('error', $msg);
+            }
+        }
+
         $isEditable = ! $order->order_closed_at || $user->hasAnyRole(['developer', 'senior_dispatcher', 'general_director']);
         $canEditCcFields = $user->hasAnyRole(['developer', 'call_center', 'senior_dispatcher', 'general_director']);
         $canEditScheduleFields = $this->userCanEditScheduleFields($user);
@@ -799,6 +843,8 @@ class OrderController extends Controller
             (! $user->hasRole('call_center') && ! $user->hasRole('tech_director'));
         $canEditLongTrip = $this->userCanEditLongTrip($user);
         $canEditSource = $this->userCanEditSource($user, $order);
+        $canChangeOrderCity = $this->userCanChangeOrderCity($user);
+        $canChangeOrderSource = $this->userCanChangeOrderSource($user, $order);
         $canRefreshClosedCfm = $order->order_closed_at && $user->hasAnyRole(['developer', 'senior_dispatcher', 'general_director']);
 
         $rules = [];
@@ -826,21 +872,26 @@ class OrderController extends Controller
             $rules['is_long_trip'] = 'nullable|in:0,1';
         }
 
-        // Статус могут менять только роли с непустым списком устанавливаемых статусов
+        // Статус могут менять только роли с непустым списком устанавливаемых статусов.
+        // После закрытия статус не принимаем — только «Открыть заказ».
         $allowedStatuses = $this->orderStatusesAllowedOnUpdate($user, $order);
-        if ($isEditable && $allowedStatuses !== []) {
+        if ($isEditable && $allowedStatuses !== [] && ! $order->order_closed_at) {
             $rules['order_status'] = 'required|in:'.implode(',', $allowedStatuses);
         }
 
         // Правила для полей города (только если пользователь может их редактировать)
         if ($canEditCityFields && $isEditable) {
             $rules['master_id'] = 'nullable|exists:users,user_id';
-            $rules['source_id'] = 'nullable|exists:sources,source_id';
             $rules['amount_paid'] = 'required|integer|min:0';
             $rules['amount_comp'] = 'required|integer|min:0';
             $rules['city_adds'] = 'nullable|string';
-            $rules['address_city_id'] = 'required|exists:cities,city_id';
-        } elseif ($canEditSource && $isEditable) {
+            if ($canChangeOrderCity) {
+                $rules['address_city_id'] = 'required|exists:cities,city_id';
+            }
+            if ($canChangeOrderSource) {
+                $rules['source_id'] = 'nullable|exists:sources,source_id';
+            }
+        } elseif ($canChangeOrderSource && $isEditable) {
             $rules['source_id'] = 'nullable|exists:sources,source_id';
         }
 
@@ -856,6 +907,24 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        if ($order->order_closed_at) {
+            unset($validated['order_status']);
+        }
+
+        $closingViaSave = ['completed', 'rejected'];
+        if (
+            array_key_exists('order_status', $validated)
+            && in_array((string) $validated['order_status'], $closingViaSave, true)
+            && ! in_array((string) $order->order_status, $closingViaSave, true)
+        ) {
+            $msg = 'Закрытие «Готов»/«Отказ» только кнопкой «Провести». Оплата 0 = «Отказ» без документов.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+
+            return back()->with('error', $msg);
+        }
 
         if (! empty($validated['equipment_type'])) {
             $validated['order_core'] = Order::getOrderCoreByEquipment($validated['equipment_type']);
@@ -1065,9 +1134,11 @@ class OrderController extends Controller
                     'master_id' => 'nullable|exists:users,user_id',
                     'amount_paid' => 'nullable|integer|min:0',
                     'amount_comp' => 'nullable|integer|min:0',
-                    'source_id' => 'nullable|exists:sources,source_id',
                     'city_adds' => 'nullable|string',
                 ];
+                if ($this->userCanChangeOrderSource($user, $order)) {
+                    $cityRules['source_id'] = 'nullable|exists:sources,source_id';
+                }
                 $cityData = $request->validate($cityRules);
                 $order->fill(array_intersect_key($cityData, array_flip(array_keys($cityRules))));
                 $order->save();
@@ -1105,8 +1176,8 @@ class OrderController extends Controller
     }
 
     /**
-     * Открытие проведённого заказа (разработчик, рег. директор, старший диспетчер).
-     * Сбрасывает order_closed_at и order_closed_by.
+     * Открытие проведённого заказа (разработчик, рег. директор, старший диспетчер, гендир).
+     * Снимает проведение, «Готов»/«Отказ» → «В работе».
      */
     public function reopen(int $order_id)
     {
@@ -1127,16 +1198,22 @@ class OrderController extends Controller
         } catch (\Throwable) {
         }
 
-        // Удаляем связанные кассовые операции
-        \App\Models\CfmOperation::where('related_order_id', $order_id)->delete();
+        $beforeStatus = (string) $order->order_status;
+        try {
+            $this->orderService->reopen($order);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
-        $order->order_closed_at = null;
-        $order->order_closed_by = null;
-        $order->save();
-
-        $this->activityLog->log($order, auth()->user(), 'reopened', null, null, 'Заказ снова открыт для редактирования');
+        $order->refresh();
+        if ($beforeStatus !== (string) $order->order_status) {
+            $this->activityLog->logChanges($order, $user, ['order_status' => $beforeStatus], [
+                'order_status' => $order->order_status,
+            ]);
+        }
+        $this->activityLog->log($order, $user, 'reopened', null, null, 'Заказ снова открыт, статус «В работе»');
         \App\Jobs\SyncOrderToGmJob::dispatch((int) $order->order_id);
 
-        return back()->with('success', 'Заказ открыт для редактирования');
+        return back()->with('success', 'Заказ открыт, статус «В работе»');
     }
 }

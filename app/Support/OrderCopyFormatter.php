@@ -79,6 +79,11 @@ class OrderCopyFormatter
             $chunks[] = self::withHousePrefix($house);
         }
 
+        $addressAdds = self::cleanDescription((string) ($addr->address_adds ?? ''));
+        if ($addressAdds !== '') {
+            $chunks[] = $addressAdds;
+        }
+
         return implode(', ', $chunks);
     }
 

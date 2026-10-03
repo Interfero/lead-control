@@ -49,6 +49,23 @@ class OrderCopyFormatterTest extends TestCase
         $this->assertStringNotContainsString('ул.', $text);
     }
 
+    public function test_includes_address_comment_in_copy_text(): void
+    {
+        $order = $this->order([
+            'order_id' => 843,
+            'order_type' => 'new',
+            'order_core' => 'non_core',
+            'order_adds' => 'Принтер плохо печатал глянцевую бумагу',
+            'datetime_order' => Carbon::parse('2026-10-03 12:18:00'),
+        ], 'Йошкар-Ола', 'Коммунистическая', '14', 'М', 'РК', null);
+        $order->address->address_adds = 'Пос Медведево';
+
+        $this->assertStringContainsString(
+            'г. Йошкар-Ола, Коммунистическая, д. 14, Пос Медведево, Принтер плохо печатал глянцевую бумагу',
+            OrderCopyFormatter::format($order)
+        );
+    }
+
     public function test_strips_rush_word_from_description(): void
     {
         $order = $this->order([

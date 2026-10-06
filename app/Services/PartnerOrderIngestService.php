@@ -121,7 +121,7 @@ class PartnerOrderIngestService
 
                 if (! $person) {
                     $person = Person::create([
-                        'person_name' => $data['client_name'],
+                        'person_name' => $data['client_name'] ?? '',
                     ]);
                     PersonPhone::create([
                         'person_id' => $person->person_id,
@@ -138,8 +138,8 @@ class PartnerOrderIngestService
                 $address = Address::create([
                     'person_id' => $person->person_id,
                     'city_id' => $data['city_id'],
-                    'street' => $data['street'],
-                    'house' => $data['house'],
+                    'street' => $data['street'] ?: null,
+                    'house' => $data['house'] ?: null,
                     'flat' => $data['flat'] ?? null,
                     'address_adds' => $data['address_adds'] ?? null,
                 ]);
@@ -155,7 +155,7 @@ class PartnerOrderIngestService
                     'order_type' => 'new',
                     'order_core' => $orderCore,
                     'equipment_type' => $data['equipment_type'] ?? null,
-                    'order_status' => 'pending',
+                    'order_status' => $this->initialStatus($data),
                     'order_adds' => $data['order_adds'] ?? null,
                     'source_id' => $sourceId,
                     'order_created_at' => now(),
@@ -243,5 +243,17 @@ class PartnerOrderIngestService
         }
 
         return $fallback;
+    }
+
+    /** «Прозвон», если партнёр отметил прозвон или не заполнил адрес, имя или комментарий; иначе «Ожидание». */
+    private function initialStatus(array $data): string
+    {
+        $needsCall = ! empty($data['call_required'])
+            || empty($data['street'])
+            || empty($data['house'])
+            || empty($data['client_name'])
+            || trim((string) ($data['order_adds'] ?? '')) === '';
+
+        return $needsCall ? 'callback' : 'pending';
     }
 }

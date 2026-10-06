@@ -70,11 +70,11 @@ class PartnerOrderController extends Controller
         $equipmentKeys = implode(',', array_keys(Order::EQUIPMENT_TYPES));
 
         $validated = $request->validate([
-            'client_name' => ['required', 'string', 'max:255'],
+            'client_name' => ['nullable', 'string', 'max:255'],
             'client_phone' => ['required', 'string', 'max:50'],
             'city_id' => ['required', 'integer', Rule::exists('cities', 'city_id')->where(fn ($q) => $q->where('is_active', true))],
-            'street' => ['required', 'string', 'max:255'],
-            'house' => ['required', 'string', 'max:64'],
+            'street' => ['nullable', 'string', 'max:255'],
+            'house' => ['nullable', 'string', 'max:64'],
             'flat' => ['nullable', 'string', 'max:32'],
             'address_adds' => ['nullable', 'string', 'max:2000'],
             'order_core' => ['nullable', 'in:core,non_core,other'],
@@ -85,6 +85,8 @@ class PartnerOrderController extends Controller
             'source_id' => ['nullable', 'integer', Rule::exists('sources', 'source_id')],
             // Происхождение заявки: приём в LC всегда LC (KP-LEAD — только в Desk/CRM2).
             'source' => ['nullable', 'string', Rule::in(['LC'])],
+            // Прозвон: заявка без полного адреса/имени уходит статусом «Прозвон».
+            'call_required' => ['nullable', 'boolean'],
         ]);
 
         $idempotencyKey = (string) $request->header('Idempotency-Key', '');

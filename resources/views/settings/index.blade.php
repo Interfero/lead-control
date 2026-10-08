@@ -175,6 +175,15 @@
             </x-ui.card>
         @endif
 
+        @if (auth()->user()->hasAnyRole(['developer', 'general_director']))
+            <x-ui.card>
+                <h2 class="m-0 mb-4 text-base font-semibold text-foreground">Справочники</h2>
+                <x-ui.button href="{{ route('management.work-types.index') }}" variant="outline" class="gap-2">
+                    Виды работ
+                </x-ui.button>
+            </x-ui.card>
+        @endif
+
         @if (auth()->user()->hasRole('developer'))
             <x-ui.card>
                 <h2 class="m-0 mb-4 text-base font-semibold text-foreground">Блок Разработчика</h2>

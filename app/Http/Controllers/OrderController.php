@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\City;
 use App\Models\Order;
+use App\Models\WorkType;
 use App\Models\Source;
 use App\Models\User;
 use App\Support\OrderRescheduleLog;
@@ -562,7 +563,7 @@ class OrderController extends Controller
             'order_time' => 'nullable',
             'order_type' => 'required|in:new,repeat,warranty',
             'order_core' => 'nullable|in:core,non_core,other',
-            'equipment_type' => 'nullable|in:'.implode(',', array_keys(Order::EQUIPMENT_TYPES)),
+            'equipment_type' => 'nullable|in:'.implode(',', array_keys(WorkType::activeOptions())),
             'order_status' => 'required|in:'.implode(',', $allowedStatuses),
             'order_adds' => 'nullable|string',
             'source_id' => 'nullable|exists:sources,source_id',
@@ -578,7 +579,7 @@ class OrderController extends Controller
             $datetimeOrder = $request->order_date.' '.$request->order_time;
         }
 
-        // Профильность: из формы или авто по виду техники (Order::CORE_EQUIPMENT / getOrderCoreByEquipment)
+        // Профильность: из формы или авто по виду техники (справочник WorkType / getOrderCoreByEquipment)
         $orderCore = $validated['order_core'] ?? null;
         if (! empty($validated['equipment_type'])) {
             $orderCore = Order::getOrderCoreByEquipment($validated['equipment_type']);
@@ -864,7 +865,7 @@ class OrderController extends Controller
             }
             $rules['order_type'] = 'required|in:new,repeat,warranty';
             $rules['order_core'] = 'required|in:core,non_core,other';
-            $rules['equipment_type'] = 'nullable|in:'.implode(',', array_keys(Order::EQUIPMENT_TYPES));
+            $rules['equipment_type'] = 'nullable|in:'.implode(',', array_keys(WorkType::activeOptions()));
             $rules['order_adds'] = 'nullable|string';
             if (! array_key_exists('shift_adds', $rules)) {
                 $rules['shift_adds'] = 'nullable|string';

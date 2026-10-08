@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\WorkType;
 use App\Services\Api\OrderLeadPresenter;
 use App\Services\PartnerOrderIngestService;
 use Illuminate\Database\QueryException;
@@ -67,7 +68,7 @@ class PartnerOrderController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $equipmentKeys = implode(',', array_keys(Order::EQUIPMENT_TYPES));
+        $equipmentKeys = implode(',', array_keys(WorkType::activeOptions()));
 
         $validated = $request->validate([
             'client_name' => ['nullable', 'string', 'max:255'],

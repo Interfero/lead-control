@@ -59,28 +59,11 @@ class Order extends Model
 
     public const BRANCH_COMMENT_CLOSE_HEADING = '**Отписка мастера при закрытии заявки**';
 
-    const EQUIPMENT_TYPES = [
-        'tv' => 'Телевизоры',
-        'computer' => 'Пк/Моноблоки/Ноутбуки',
-        'printer' => 'Ремонт принтера/Настройка без пк/Прошивка принтера',
-        'monitor' => 'Мониторы/Видеокарты (без ПК)',
-        'boiler' => 'Бойлеры',
-        'oven' => 'Духовки/Духовые шкафы/Электроплиты',
-        'conditioner' => 'Кондиционеры/Сплит-системы',
-        'coffee_machine' => 'Кофемашины',
-        'dishwasher' => 'Посудомоечные машины',
-        'washing_machine' => 'Стиральные/Сушильные машины',
-        'fridge' => 'Холодильники/Морозилки',
-        'game_console' => 'Чистка и настройка PS/Xbox/Nintendo switch/Steam Deck',
-        'data_recovery' => 'Восстановление данных с носителей',
-        'cable' => 'Обжим кабеля без пк',
-        'router' => 'Роутеры',
-        'smartphone' => 'Телефоны/Планшеты',
-        'other_device' => 'Тип техники «ПРОЧАЯ»',
-    ];
-
-    /** Профильный вид техники по регламенту: только ПК/ноутбуки. */
-    const CORE_EQUIPMENT = ['computer'];
+    /**
+     * Виды работ вынесены в справочник App\Models\WorkType (таблица work_types) — см. миграцию
+     * 2026_10_08_160000. EQUIPMENT_TYPES/CORE_EQUIPMENT здесь больше нет, их заменяют
+     * WorkType::activeOptions() и WorkType::active()->where('order_core', ...).
+     */
 
     public const DISPATCHER_ARCHIVE_DAYS = 7;
 
@@ -329,13 +312,13 @@ class Order extends Model
         ];
     }
 
+    /**
+     * Профильность по виду работ — из справочника work_types (см. App\Models\WorkType), не из
+     * хардкода. Неизвестный/деактивированный код — 'non_core' (безопасный дефолт, как и было).
+     */
     public static function getOrderCoreByEquipment(string $equipmentType): string
     {
-        if ($equipmentType === 'other_device') {
-            return 'other';
-        }
-
-        return in_array($equipmentType, self::CORE_EQUIPMENT) ? 'core' : 'non_core';
+        return WorkType::query()->where('code', $equipmentType)->value('order_core') ?? 'non_core';
     }
 
     public static function orderCoreLabel(?string $orderCore): string

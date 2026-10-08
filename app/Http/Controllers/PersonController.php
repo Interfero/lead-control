@@ -7,6 +7,7 @@ use App\Models\Address;
 use App\Models\City;
 use App\Models\PersonPhone;
 use App\Models\Order;
+use App\Models\WorkType;
 use App\Contracts\AtsProviderInterface;
 use App\Services\PersonService;
 use App\Services\OrderActivityLogService;
@@ -164,7 +165,7 @@ class PersonController extends Controller
             'datetime_order' => 'nullable|date',
             'order_adds' => 'nullable|string',
             'source_id' => 'nullable|exists:sources,source_id',
-            'equipment_type' => 'nullable|in:' . implode(',', array_keys(Order::EQUIPMENT_TYPES)),
+            'equipment_type' => 'nullable|in:' . implode(',', array_keys(WorkType::activeOptions())),
         ]);
         
         $person = $this->personService->create($validated);

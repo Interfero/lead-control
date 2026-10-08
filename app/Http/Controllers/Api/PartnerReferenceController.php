@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\City;
-use App\Models\Order;
 use App\Models\Source;
+use App\Models\WorkType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,14 +30,22 @@ class PartnerReferenceController extends Controller
             ['code' => 'other', 'label' => 'Прочий'],
         ];
 
-        $equipment = [];
-        foreach (Order::EQUIPMENT_TYPES as $code => $label) {
-            $equipment[] = [
-                'code' => $code,
-                'label' => $label,
-                'order_core' => in_array($code, Order::CORE_EQUIPMENT, true) ? 'core' : 'non_core',
-            ];
-        }
+        // partner_rate/partner_cap — то, что SuperPart синкает в свой WorkCategory и использует при
+        // расчёте начисления партнёру (см. задачу по выносу видов работ в БД, 2026-10-08). master_rate
+        // пока задел на будущее, CRM сама его никуда не применяет.
+        $equipment = WorkType::query()
+            ->active()
+            ->ordered()
+            ->get(['code', 'name', 'order_core', 'partner_rate', 'partner_cap', 'master_rate'])
+            ->map(fn (WorkType $w) => [
+                'code' => $w->code,
+                'label' => $w->name,
+                'order_core' => $w->order_core,
+                'partner_rate' => (float) $w->partner_rate,
+                'partner_cap' => (float) $w->partner_cap,
+                'master_rate' => (float) $w->master_rate,
+            ])
+            ->all();
 
         return response()->json([
             'order_core' => $orderCore,

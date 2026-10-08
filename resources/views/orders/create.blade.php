@@ -45,9 +45,8 @@
                 <x-ui.form-group label="Вид техники" name="equipment_type" required class="mb-0">
                     <x-ui.select name="equipment_type" id="equipmentTypeSelect" required onchange="updateOrderCore(this)">
                         <option value="">Выберите</option>
-                        @foreach(\App\Models\Order::EQUIPMENT_TYPES as $code => $label)
-                            @php $core = in_array($code, \App\Models\Order::CORE_EQUIPMENT) ? 'core' : 'non_core'; @endphp
-                            <option value="{{ $code }}" data-core="{{ $core }}" {{ old('equipment_type') == $code ? 'selected' : '' }}>{{ $label }}</option>
+                        @foreach(\App\Models\WorkType::active()->ordered()->get() as $workType)
+                            <option value="{{ $workType->code }}" data-core="{{ $workType->order_core }}" {{ old('equipment_type') == $workType->code ? 'selected' : '' }}>{{ $workType->name }}</option>
                         @endforeach
                     </x-ui.select>
                 </x-ui.form-group>
@@ -57,7 +56,7 @@
                         id="orderCoreDisplay"
                         readonly
                         class="bg-muted cursor-default"
-                        value="{{ old('equipment_type') ? (in_array(old('equipment_type'), \App\Models\Order::CORE_EQUIPMENT) ? 'Профильный' : 'Непрофильный') : '—' }}"
+                        value="{{ old('equipment_type') ? \App\Models\Order::orderCoreLabel(\App\Models\Order::getOrderCoreByEquipment(old('equipment_type'))) : '—' }}"
                         placeholder="Выберите вид техники"
                     />
                 </x-ui.form-group>
@@ -131,7 +130,7 @@
 
 @push('scripts')
 <script>
-window.ORDER_CORE_EQUIPMENT = @json(\App\Models\Order::CORE_EQUIPMENT);
+window.ORDER_CORE_EQUIPMENT = @json(\App\Models\WorkType::active()->where('order_core', 'core')->pluck('code'));
 window.CITY_OPEN_TIMES_BY_CITY = @json($cityOpenTimesByCityId ?? []);
 window.PERSON_CITY_TIME_URL = @json(route('persons.city.time', ['city_id' => 999999999])).replace('999999999', '');
 

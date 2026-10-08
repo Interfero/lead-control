@@ -13,7 +13,7 @@ class SyncOrderCoreFromEquipmentCommand extends Command
                             {--refresh-cfm : Пересчитать кассу у уже проведённых заказов}
                             {--null-equipment-non-core : Без вида техники → непрофильный}';
 
-    protected $description = 'Выставить order_core по виду техники (после правки CORE_EQUIPMENT)';
+    protected $description = 'Выставить order_core по виду техники (после правки видов работ в WorkType)';
 
     public function handle(OrderService $orderService): int
     {
@@ -30,7 +30,7 @@ class SyncOrderCoreFromEquipmentCommand extends Command
             }
 
             $label = $order->equipment_type
-                ? (Order::EQUIPMENT_TYPES[$order->equipment_type] ?? $order->equipment_type)
+                ? \App\Models\WorkType::labelFor($order->equipment_type)
                 : '—';
 
             $this->line(sprintf(

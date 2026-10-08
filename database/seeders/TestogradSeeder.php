@@ -89,7 +89,7 @@ class TestogradSeeder extends Seeder
         $managers = $usersByCode['order_manager'];
         $branchHead = $usersByCode['branch_head'][0];
 
-        $equipmentCycle = array_keys(array_slice(Order::EQUIPMENT_TYPES, 0, 20, true));
+        $equipmentCycle = array_keys(array_slice(\App\Models\WorkType::activeOptions(), 0, 20, true));
         $statuses = [
             'pending', 'pending', 'pending',
             'callback', 'callback',

@@ -108,7 +108,7 @@
                                 <label class="form-label">Вид техники *</label>
                                 <select name="equipment_type" class="form-input" {{ !$isEditable || !$canEditCcFields ? 'disabled' : '' }} onchange="updateOrderCore(this)">
                                     <option value="">Выберите</option>
-                                    @foreach(\App\Models\Order::EQUIPMENT_TYPES as $code => $label)
+                                    @foreach(\App\Models\WorkType::activeOptions() as $code => $label)
                                         <option value="{{ $code }}" {{ $order->equipment_type == $code ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>
@@ -376,7 +376,7 @@
                         
                         <div class="order-sidebar-section">
                             <div class="order-sidebar-muted">
-                                <strong>Вид техники:</strong> {{ $order->equipment_type ? (\App\Models\Order::EQUIPMENT_TYPES[$order->equipment_type] ?? $order->equipment_type) : '—' }}
+                                <strong>Вид техники:</strong> {{ $order->equipment_type ? \App\Models\WorkType::labelFor($order->equipment_type) : '—' }}
                             </div>
                             <div class="order-sidebar-muted" style="margin-top: 0.25rem;">
                                 <strong>Профильность:</strong> {{ \App\Models\Order::orderCoreLabel($order->order_core) }}
@@ -433,6 +433,9 @@
                             $canEdit = $isEditable && ($canEditCcFields || $canEditCityFields || ($canEditCallbackClientData ?? false) || ($canEditLongTrip ?? false));
                         @endphp
                         <div class="order-show-buttons">
+                            @php
+                                $masterFlatCopy = \App\Support\MasterFlatCopyFormatter::fromOrder($order);
+                            @endphp
                             @if($canEdit)
                                 <button type="submit" form="orderForm" class="btn btn-primary btn-order-compact">
                                     {!! icon('save') !!} Сохранить
@@ -440,6 +443,11 @@
                                 <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyOrderInfo()">
                                     {!! icon('copy') !!} Копировать
                                 </button>
+                                @if($masterFlatCopy)
+                                    <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyMasterFlatInfo()" title="№ заявки + адрес + квартира для чата мастеру">
+                                        {!! icon('copy') !!} Копировать кв
+                                    </button>
+                                @endif
                                 <button type="submit" form="orderForm" class="btn btn-primary btn-order-compact" name="save_and_close" value="1">
                                     {!! icon('save') !!} Сохр. и закрыть
                                 </button>
@@ -447,6 +455,11 @@
                                 <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyOrderInfo()">
                                     {!! icon('copy') !!} Копировать
                                 </button>
+                                @if($masterFlatCopy)
+                                    <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyMasterFlatInfo()" title="№ заявки + адрес + квартира для чата мастеру">
+                                        {!! icon('copy') !!} Копировать кв
+                                    </button>
+                                @endif
                             @endif
                             
                             <a href="{{ route('orders.index') }}" class="btn btn-secondary btn-order-compact">
@@ -718,6 +731,20 @@
         const text = @json(\App\Support\OrderCopyFormatter::format($order));
         copyTextToClipboard(text).then(() => {
             showCopyFeedback(true, 'Информация скопирована в буфер обмена');
+        }).catch(() => {
+            showCopyFeedback(false, 'Ошибка при копировании');
+        });
+    }
+
+    // № + адрес + кв для чата мастеру
+    function copyMasterFlatInfo() {
+        const text = @json(\App\Support\MasterFlatCopyFormatter::fromOrder($order));
+        if (!text) {
+            showCopyFeedback(false, 'Квартира не указана');
+            return;
+        }
+        copyTextToClipboard(text).then(() => {
+            showCopyFeedback(true, 'Для мастера скопировано');
         }).catch(() => {
             showCopyFeedback(false, 'Ошибка при копировании');
         });
@@ -1314,7 +1341,7 @@
     }
     
     // Drag & Drop
-    const coreEquipment = @json(\App\Models\Order::CORE_EQUIPMENT);
+    const coreEquipment = @json(\App\Models\WorkType::active()->where('order_core', 'core')->pluck('code'));
     function updateOrderCore(select) {
         const val = select.value;
         const coreHidden = document.getElementById('orderCoreSelect');

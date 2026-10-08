@@ -69,7 +69,7 @@
                     <label class="form-label">Вид работ *</label>
                     <select name="equipment_type" id="equipmentTypeCreate" class="form-input" required onchange="updateOrderCoreCreate(this.value)">
                         <option value="">Выберите вид техники</option>
-                        @foreach(\App\Models\Order::EQUIPMENT_TYPES as $key => $label)
+                        @foreach(\App\Models\WorkType::activeOptions() as $key => $label)
                             <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
                     </select>
@@ -164,7 +164,7 @@
     }
 
     function updateOrderCoreCreate(equipmentType) {
-        const coreTypes = @json(\App\Models\Order::CORE_EQUIPMENT);
+        const coreTypes = @json(\App\Models\WorkType::active()->where('order_core', 'core')->pluck('code'));
         let core = 'non_core';
         if (equipmentType === 'other_device') core = 'other';
         else if (coreTypes.includes(equipmentType)) core = 'core';

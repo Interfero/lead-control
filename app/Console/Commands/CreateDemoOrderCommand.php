@@ -34,15 +34,15 @@ class CreateDemoOrderCommand extends Command
                             {--source=6 : source_id; иначе первый активный источник выбранного города}
                             {--status=pending : Код статуса заказа (как при создании из формы КЦ)}
                             {--type=new : Тип: new, repeat, warranty}
-                            {--equipment=computer : Код вида техники (ключ Order::EQUIPMENT_TYPES)}';
+                            {--equipment=computer : Код вида техники (code в таблице work_types)}';
 
     protected $description = 'Создать новую полную тестовую заявку в Тестограде (по умолчанию city=49, автор user=131). Каждый запуск — новая уникальная заявка.';
 
     public function handle(): int
     {
         $equipment = (string) $this->option('equipment');
-        if (! array_key_exists($equipment, Order::EQUIPMENT_TYPES)) {
-            $this->error('Некорректный --equipment. Допустимые ключи: '.implode(', ', array_keys(Order::EQUIPMENT_TYPES)));
+        if (! array_key_exists($equipment, \App\Models\WorkType::activeOptions())) {
+            $this->error('Некорректный --equipment. Допустимые ключи: '.implode(', ', array_keys(\App\Models\WorkType::activeOptions())));
 
             return self::FAILURE;
         }

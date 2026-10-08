@@ -425,7 +425,7 @@
                     <label class="form-label">Вид техники</label>
                     <select id="orderModalEquipment" name="equipment_type" class="form-input">
                         <option value="">Выберите</option>
-                        @foreach(\App\Models\Order::EQUIPMENT_TYPES as $eqKey => $eqLabel)
+                        @foreach(\App\Models\WorkType::activeOptions() as $eqKey => $eqLabel)
                             <option value="{{ $eqKey }}">{{ $eqLabel }}</option>
                         @endforeach
                     </select>

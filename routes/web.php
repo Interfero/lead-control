@@ -253,6 +253,15 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('/{flyer_maket}/edit', [\App\Http\Controllers\Management\FlyerMaketController::class, 'edit'])->name('edit');
                 Route::put('/{flyer_maket}', [\App\Http\Controllers\Management\FlyerMaketController::class, 'update'])->name('update');
             });
+
+            Route::prefix('work-types')->name('work-types.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\Management\WorkTypeManagementController::class, 'index'])->name('index');
+                Route::get('/create', [\App\Http\Controllers\Management\WorkTypeManagementController::class, 'create'])->name('create');
+                Route::post('/', [\App\Http\Controllers\Management\WorkTypeManagementController::class, 'store'])->name('store');
+                Route::get('/{work_type}/edit', [\App\Http\Controllers\Management\WorkTypeManagementController::class, 'edit'])->name('edit');
+                Route::put('/{work_type}', [\App\Http\Controllers\Management\WorkTypeManagementController::class, 'update'])->name('update');
+                Route::delete('/{work_type}', [\App\Http\Controllers\Management\WorkTypeManagementController::class, 'destroy'])->name('destroy');
+            });
         });
 
     // Источники заказов (старший диспетчер — без остального раздела «Управление»)

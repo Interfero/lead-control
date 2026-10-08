@@ -236,7 +236,7 @@ class OrderActivityLogService
         }
 
         if ($field === 'equipment_type') {
-            return Order::EQUIPMENT_TYPES[$value] ?? (string) $value;
+            return \App\Models\WorkType::labelFor((string) $value);
         }
 
         if ($field === 'master_id') {

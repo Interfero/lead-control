@@ -163,7 +163,7 @@ class PersonController extends Controller
             'order_status' => 'nullable|in:' . implode(',', $allowedOrderStatuses),
             'datetime_order' => 'nullable|date',
             'order_adds' => 'nullable|string',
-            'source_id' => 'required_with:order_type|exists:sources,source_id',
+            'source_id' => 'nullable|exists:sources,source_id',
             'equipment_type' => 'nullable|in:' . implode(',', array_keys(Order::EQUIPMENT_TYPES)),
         ]);
         

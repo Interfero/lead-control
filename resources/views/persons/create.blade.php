@@ -109,11 +109,10 @@
                 ]);
             @endphp
             <div class="form-group">
-                <label class="form-label">Источник заказа *</label>
+                <label class="form-label">Источник заказа</label>
                 <x-ui.searchable-select
                     name="source_id"
                     :options="$sourceOptions"
-                    required
                 />
             </div>
         </div>
@@ -175,12 +174,6 @@
     async function submitCreate(e) {
         e.preventDefault();
         const form = e.target;
-        const sourceId = form.querySelector('[name="source_id"]')?.value;
-        if (!sourceId) {
-            Toast.error('Выберите источник заказа из списка');
-            form.querySelector('[data-searchable-input]')?.focus();
-            return;
-        }
         const formData = new FormData(form);
         const orderDate = formData.get('order_date');
         const orderTime = formData.get('order_time');

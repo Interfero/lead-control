@@ -106,12 +106,11 @@
                     'label' => $source->display_label,
                 ]);
             @endphp
-            <x-ui.form-group label="Источник заказа" name="source_id" required class="mb-4">
+            <x-ui.form-group label="Источник заказа" name="source_id" class="mb-4">
                 <x-ui.searchable-select
                     name="source_id"
                     :options="$sourceOptions"
                     :value="old('source_id')"
-                    required
                 />
             </x-ui.form-group>
 

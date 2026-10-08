@@ -196,20 +196,23 @@ class OrderController extends Controller
             ->distinct()
             ->pluck('master_id');
 
+        // hasAccessToCity() учитывает access_all_cities — раньше тут был прямой
+        // whereHas('cities', ...) по pivot-таблице, из-за чего мастер с галочкой
+        // «Все города» (пустой pivot по задумке) вообще не попадал в список ни
+        // для одного заказа, пока у него не было уже открытого заказа в этом же
+        // городе. См. User::hasAccessToCity()/cityIdsForOrdersFilter() — тот же
+        // баг уже чинили в других местах, здесь просто забыли.
         return User::query()
             ->whereHas('roles', fn ($q) => $q->where('role_code', 'master'))
             ->where('is_active', true)
-            ->where(function ($q) use ($cityGroupIds, $activeMasterIdsInCity, $order) {
-                $q->whereHas('cities', fn ($c) => $c->whereIn('cities.city_id', $cityGroupIds));
-                if ($activeMasterIdsInCity->isNotEmpty()) {
-                    $q->orWhereIn('user_id', $activeMasterIdsInCity);
-                }
-                if ($order->master_id) {
-                    $q->orWhere('user_id', $order->master_id);
-                }
+            ->get()
+            ->filter(function (User $master) use ($orderCityId, $activeMasterIdsInCity, $order) {
+                return $master->hasAccessToCity((int) $orderCityId)
+                    || $activeMasterIdsInCity->contains($master->user_id)
+                    || ($order->master_id && (int) $order->master_id === (int) $master->user_id);
             })
-            ->orderBy('user_name')
-            ->get();
+            ->sortBy('user_name')
+            ->values();
     }
 
     /**
@@ -562,7 +565,7 @@ class OrderController extends Controller
             'equipment_type' => 'nullable|in:'.implode(',', array_keys(Order::EQUIPMENT_TYPES)),
             'order_status' => 'required|in:'.implode(',', $allowedStatuses),
             'order_adds' => 'nullable|string',
-            'source_id' => 'required|exists:sources,source_id',
+            'source_id' => 'nullable|exists:sources,source_id',
             'partner_user_id' => 'nullable|integer|min:1',
         ]);
 
@@ -1213,6 +1216,21 @@ class OrderController extends Controller
         }
         $this->activityLog->log($order, $user, 'reopened', null, null, 'Заказ снова открыт, статус «В работе»');
         \App\Jobs\SyncOrderToGmJob::dispatch((int) $order->order_id);
+
+        // SuperPart: возврат в работу — тот же outbox-snapshot, что и у OrderController::update()
+        // (туда reopen() не заходит, он меняет статус напрямую через OrderService::reopen()).
+        try {
+            $partnerApi = app(PartnerApiService::class);
+            $eventId = $partnerApi->enqueueSnapshotForOrder($order);
+            if (is_string($eventId) && $eventId !== '') {
+                app(\App\Services\SuperpartOutboxDeliverer::class)->deliverEventId($eventId);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('OrderController::reopen: SuperPart notify failed', [
+                'order_id' => $order->order_id,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return back()->with('success', 'Заказ открыт, статус «В работе»');
     }

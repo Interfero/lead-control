@@ -223,7 +223,7 @@ class CfmController extends Controller
                     ? \App\Models\SalaryCalculation::with(['city', 'recipient'])->findOrFail($calcId)
                     : null;
                 if ($calc) {
-                    $salaryService->assertCanView($user, $calc);
+                    $salaryService->assertCanPay($user, $calc);
                 }
                 $balances = $calc ? $salaryService->balances($calc) : null;
 
@@ -430,7 +430,7 @@ class CfmController extends Controller
 
             if ($presetType === 'director_salary') {
                 $calc = \App\Models\SalaryCalculation::findOrFail((int) $validated['salary_calculation_id']);
-                app(\App\Services\DirectorSalaryService::class)->assertCanView(auth()->user(), $calc);
+                app(\App\Services\DirectorSalaryService::class)->assertCanPay(auth()->user(), $calc);
                 if ((int) $validated['city_id'] !== (int) $calc->city_id) {
                     throw ValidationException::withMessages([
                         'city_id' => 'Город должен совпадать с расчётом ЗП',
@@ -535,6 +535,9 @@ class CfmController extends Controller
             }
         }
 
+        $canChoosePostingDate = $canEditCfm && $this->cfmService->canChoosePostingDate($operation);
+        $postingOptions = $this->cfmService->postingDateOptions();
+
         $overdraftLimit = max(0, (int) config('cfm.overdraft_limit', 2000));
         $cityCashBalance = $this->cfmService->closedBalanceForCity((int) $operation->city_id);
         $cityCashKind = $operation->city?->isSatellite() ? 'спутник' : 'город';
@@ -553,6 +556,8 @@ class CfmController extends Controller
             'canAttachDocuments',
             'canDeleteDocuments',
             'canEditCfm',
+            'canChoosePostingDate',
+            'postingOptions',
             'isClientRefund',
             'salaryPayoutHint',
             'overdraftLimit',
@@ -634,9 +639,13 @@ class CfmController extends Controller
     /**
      * Проведение операции
      */
-    public function close(int $cfm_id)
+    public function close(Request $request, int $cfm_id)
     {
         $this->assertCanEditOpenCfm();
+
+        $validated = $request->validate([
+            'posting' => 'nullable|in:now,prev_month_end,month_end',
+        ]);
 
         $operation = CfmOperation::findOrFail($cfm_id);
         $user = auth()->user();
@@ -649,7 +658,8 @@ class CfmController extends Controller
         }
         
         try {
-            $this->cfmService->close($operation, auth()->id());
+            $closedAt = $this->cfmService->postingDateOptions()[$validated['posting'] ?? 'now'];
+            $this->cfmService->close($operation, auth()->id(), $closedAt);
             return back()->with('success', 'Операция проведена');
         } catch (ValidationException $e) {
             $msg = collect($e->errors())->flatten()->first() ?: 'Нельзя провести операцию';

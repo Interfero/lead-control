@@ -80,6 +80,23 @@ class OrderCopyFormatterTest extends TestCase
         $this->assertStringContainsString('Не работает wifi', OrderCopyFormatter::format($order));
     }
 
+    public function test_party_source_link_is_appended_once(): void
+    {
+        $url = 'https://www.avito.ru/brands/i1';
+        $order = $this->order([
+            'order_id' => 5, 'order_type' => 'new', 'order_core' => 'core',
+            'order_adds' => 'Не включается', 'datetime_order' => Carbon::parse('2026-09-01 09:30:00'),
+        ], 'Тула', 'Ленина', '10', 'Иван', 'Партнёр', null);
+        $order->source->source_kind = Source::KIND_PARTY;
+        $order->source->use_source_url = true;
+        $order->source->source_url = $url;
+
+        $this->assertStringEndsWith('РК: Партнёр, '.$url, OrderCopyFormatter::format($order));
+
+        $order->order_adds = 'Не включается '.$url;
+        $this->assertSame(1, substr_count(OrderCopyFormatter::format($order), $url));
+    }
+
     /**
      * @param  array<string, mixed>  $attrs
      */

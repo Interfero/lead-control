@@ -140,7 +140,7 @@
                                         @if($isOrderIncome)
                                             <div class="form-static">{{ number_format($operation->amount_cfm, 0, ',', ' ') }} р.</div>
                                         @else
-                                            <input type="number" name="amount_cfm" class="form-input" value="{{ old('amount_cfm', $operation->amount_cfm) }}" required min="1" placeholder="0" @if(!empty($salaryPayoutHint['available'])) max="{{ (int) $salaryPayoutHint['available'] }}" @endif>
+                                            <input type="number" name="amount_cfm" class="form-input" value="{{ old('amount_cfm', $operation->amount_cfm) }}" required min="1" placeholder="0" @if(config('cfm.director_payout_cap_enforced') && !empty($salaryPayoutHint['available'])) max="{{ (int) $salaryPayoutHint['available'] }}" @endif>
                                             @error('amount_cfm')
                                                 <span class="form-error">{{ $message }}</span>
                                             @enderror
@@ -149,7 +149,7 @@
                                                     ЗП за {{ $salaryPayoutHint['period_month'] }}:
                                                     доступно {{ number_format((int) $salaryPayoutHint['available'], 0, ',', ' ') }} ₽
                                                     из начисленных {{ number_format((int) $salaryPayoutHint['accrued'], 0, ',', ' ') }} ₽.
-                                                    Больше провести нельзя.
+                                                    @if(config('cfm.director_payout_cap_enforced'))Больше провести нельзя.@else Ограничения по сумме нет.@endif
                                                     @if(!empty($salaryPayoutHint['blocked']))
                                                         {{ $salaryPayoutHint['blocked'] }}
                                                     @endif
@@ -291,6 +291,18 @@
                                     <div class="mt-1 text-muted-foreground">Лимит минуса: −{{ number_format($overdraftLimit, 0, ',', ' ') }} ₽.</div>
                                 @endif
                                 <div class="mt-1 text-muted-foreground">Кассы города и спутника считаются отдельно.</div>
+                            </div>
+                        @endif
+                        @if($canChoosePostingDate ?? false)
+                            <div class="form-group mb-4">
+                                <label class="form-label" for="postingDate">Дата проводки</label>
+                                <select name="posting" id="postingDate" form="closeForm" class="form-input">
+                                    <option value="now" selected>По умолчанию (текущий момент)</option>
+                                    @foreach(['prev_month_end', 'month_end'] as $key)
+                                        <option value="{{ $key }}">{{ \Illuminate\Support\Str::ucfirst($postingOptions[$key]->translatedFormat('F')) }} {{ $postingOptions[$key]->format('d.m.Y') }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted-foreground">Инкассация учитывается в мотивации директора по дате проводки.</small>
                             </div>
                         @endif
                         <div class="order-show-buttons mb-4">

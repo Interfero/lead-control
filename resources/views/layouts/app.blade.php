@@ -184,6 +184,8 @@
             <x-ui.alert type="warning">{{ session('warning') }}</x-ui.alert>
         @endif
 
+        @include('partials.security-alerts')
+
         @hasSection('breadcrumbs')
             <div class="mb-3">
                 @yield('breadcrumbs')

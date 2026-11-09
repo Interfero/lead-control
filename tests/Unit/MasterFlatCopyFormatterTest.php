@@ -46,7 +46,7 @@ class MasterFlatCopyFormatterTest extends TestCase
         );
     }
 
-    public function test_from_order_returns_null_without_flat(): void
+    public function test_from_order_returns_null_without_flat_and_without_comment(): void
     {
         $city = new City(['city_name' => 'Тула']);
         $address = new Address(['street' => 'Ленина', 'house' => '1', 'flat' => '']);
@@ -56,6 +56,31 @@ class MasterFlatCopyFormatterTest extends TestCase
         $order->setRelation('address', $address);
 
         $this->assertNull(MasterFlatCopyFormatter::fromOrder($order));
+    }
+
+    public function test_from_order_keeps_address_comment_without_flat(): void
+    {
+        // Заявка 962: квартиры/офиса нет (частный дом/улица), но есть комментарий
+        // к адресу — раньше кнопка копирования пропадала целиком и комментарий
+        // мастеру не попадал вообще.
+        $city = new City(['city_name' => 'Адлер']);
+        $address = new Address([
+            'street' => 'Урожайная',
+            'house' => '79',
+            'flat' => '',
+            'address_adds' => 'Код домофона 1234',
+        ]);
+        $address->setRelation('city', $city);
+        $order = new Order;
+        $order->forceFill(['order_id' => 962]);
+        $order->setRelation('address', $address);
+
+        $text = MasterFlatCopyFormatter::fromOrder($order);
+
+        $this->assertSame(
+            "Заказ 962\nг. Адлер, Урожайная, д. 79\nКод домофона 1234",
+            $text
+        );
     }
 
     public function test_normalizes_bare_office_number(): void

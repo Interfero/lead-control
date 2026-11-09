@@ -155,7 +155,7 @@ class HrService
         }
 
         if ($user->hasRole('branch_head')) {
-            return ['master'];
+            return ['senior_manager', 'master'];
         }
 
         // КЦ, менеджер, тех.дир создавать не могут — вернём пустой запрет-список

@@ -265,6 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const directorSalaryCategoryId = {{ (int) ($directorSalaryCategoryId ?? 0) }};
     const directorSalaryCapUrl = @json(route('cfm.salary.payout-cap'));
+    const directorSalaryCapEnforced = @json((bool) config('cfm.director_payout_cap_enforced'));
     const directorSalaryHint = document.getElementById('directorSalaryHint');
     const amountInput = document.querySelector('#cfmForm input[name="amount_cfm"]');
 
@@ -284,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (!cityId) {
             directorSalaryHint.hidden = false;
-            directorSalaryHint.textContent = 'Выберите город — сумма ЗП не может быть больше расчёта за прошлый месяц.';
+            directorSalaryHint.textContent = (directorSalaryCapEnforced ? 'Выберите город — сумма ЗП не может быть больше расчёта за прошлый месяц.' : 'Выберите город.');
             return;
         }
         directorSalaryHint.hidden = false;
@@ -299,16 +300,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const month = data.period_month || '';
             let text = 'ЗП за ' + month + ': начислено ' + formatRub(data.accrued || 0)
                 + ', уже выплачено ' + formatRub(data.paid || 0)
-                + ', доступно ' + formatRub(data.available || 0) + '. Больше провести нельзя.';
+                + ', доступно ' + formatRub(data.available || 0) + (directorSalaryCapEnforced ? '. Больше провести нельзя.' : '. Ограничения по сумме нет.');
             if (data.blocked) {
                 text = data.blocked + ' ' + text;
             }
             directorSalaryHint.textContent = text;
-            if (amountInput && data.available > 0) {
+            if (directorSalaryCapEnforced && amountInput && data.available > 0) {
                 amountInput.max = data.available;
             }
         }).catch(function () {
-            directorSalaryHint.textContent = 'Не удалось получить лимит ЗП. Провести больше начисленного всё равно нельзя.';
+            directorSalaryHint.textContent = directorSalaryCapEnforced ? 'Не удалось получить лимит ЗП. Провести больше начисленного всё равно нельзя.' : 'Не удалось получить данные по ЗП.';
         });
     }
 

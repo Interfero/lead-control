@@ -79,11 +79,9 @@
         Ставка на всю инкассацию:
         до 100&nbsp;000&nbsp;₽ — <strong>15%</strong>
         <span class="salary-rates__sep">·</span>
-        свыше 100&nbsp;000 до 250&nbsp;000&nbsp;₽ — <strong>20%</strong>
+        свыше 100&nbsp;000 до 200&nbsp;000&nbsp;₽ — <strong>20%</strong>
         <span class="salary-rates__sep">·</span>
-        свыше 250&nbsp;000&nbsp;₽ — <strong>25%</strong>
-        <span class="salary-rates__sep">·</span>
-        спутники — <strong>10%</strong>
+        свыше 200&nbsp;000&nbsp;₽ — <strong>25%</strong>
     </div>
 
     <div class="salary-table-wrap">

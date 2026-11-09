@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\LoginSecurityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -32,6 +33,7 @@ class HubSsoController extends Controller
 
         Auth::login($user, true);
         $request->session()->regenerate();
+        app(LoginSecurityService::class)->recordLogin($user, $request, 'hub_sso');
         $request->session()->put('two_factor_passed', true);
 
         return redirect()->route('orders.index');

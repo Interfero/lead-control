@@ -79,6 +79,7 @@
                         <th>Телефон</th>
                         <th>Работает с</th>
                         <th>Уволен с</th>
+                        <th>Последний вход</th>
                         <th>Комментарий</th>
                     </tr>
                     <tr class="border-b border-border bg-muted">
@@ -164,6 +165,7 @@
                         </td>
                         <td class="px-1 py-2"></td>
                         <td class="px-1 py-2"></td>
+                        <td class="px-1 py-2"></td>
                         <td class="min-w-[6rem] px-2 py-2 align-top">
                             <x-ui.filter-input
                                 type="text"
@@ -197,13 +199,25 @@
                                     —
                                 @endif
                             </td>
+                            <td class="min-w-[9rem] text-sm">
+                                @php($ll = $lastLogins[$employee->user_id] ?? null)
+                                @if ($ll && $ll['login_at'])
+                                    <div title="{{ $ll['ip'] }}">{{ $ll['login_at']->format('d.m.Y H:i') }}</div>
+                                    <div class="text-muted-foreground text-xs">{{ implode(' · ', array_filter([$ll['place'], $ll['device']])) }}</div>
+                                @elseif ($ll && $ll['activity_at'])
+                                    <div title="по сессии">{{ $ll['activity_at']->format('d.m.Y H:i') }}</div>
+                                    <div class="text-muted-foreground text-xs">активность в CRM</div>
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td class="max-w-[200px]">
                                 <span class="line-clamp-2" title="{{ $employee->user_note }}">{{ \Illuminate\Support\Str::limit($employee->user_note, 50) }}</span>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="px-4 py-8 text-center text-muted-foreground" colspan="8">
+                            <td class="px-4 py-8 text-center text-muted-foreground" colspan="9">
                                 Сотрудники не найдены
                             </td>
                         </tr>

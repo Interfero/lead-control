@@ -24,11 +24,8 @@ class DirectorSalaryService
     /** Статьи сдачи инкассации: «Инкассация» (формы директоров) + «Инкас» (колонка сводки). */
     public const INCAS_CATEGORIES = ['Инкассация', 'Инкас'];
 
-    /** v2: отдельные ставки для городов-спутников (10%). */
-    public const RULES_VERSION = 2;
-
-    /** Ставка спутника: отдельная процентовка (пример: 50 000 → 5 000). */
-    public const SATELLITE_RATE_PERCENT = 10;
+    /** v3: инкасс спутников идёт в общий котёл кластера, ставка по сумме котла. */
+    public const RULES_VERSION = 3;
 
     public function paymentCategory(): CfmCategory
     {
@@ -106,7 +103,7 @@ class DirectorSalaryService
         $period = $this->periodMonthForPayoutClosedAt($at);
         $calc = $this->ensureCalculation((int) $operation->city_id, $period, false);
         if ($actor) {
-            $this->assertCanView($actor, $calc);
+            $this->assertCanPay($actor, $calc);
         }
 
         $currentId = (int) ($operation->salary_calculation_id ?? 0);
@@ -135,7 +132,7 @@ class DirectorSalaryService
     {
         $period = $this->accrualPeriodForDisplay($this->defaultPeriodMonth($now), $now);
         $calc = $this->ensureCalculation($cityId, $period, false);
-        $this->assertCanView($user, $calc);
+        $this->assertCanPay($user, $calc);
         $bal = $this->balances($calc);
         $available = max(0, (int) $bal['available'] - $this->reservedDraftAmount($calc, $exceptCfmId));
 
@@ -143,6 +140,7 @@ class DirectorSalaryService
             $calc->status === SalaryCalculation::STATUS_NEEDS_RECALC => 'Требуется пересчёт расчёта ЗП',
             $calc->status === SalaryCalculation::STATUS_ERROR => $calc->error_message ?: 'Ошибка расчёта ЗП',
             $calc->status === SalaryCalculation::STATUS_PRELIMINARY || $this->isCurrentMonth(Carbon::parse($calc->period_month), $now) => 'По текущему месяцу выплата ещё недоступна',
+            ! config('cfm.director_payout_cap_enforced') => null,
             $bal['available'] <= 0 && $bal['overpayment'] > 0 => 'Переплата '.$this->formatMoney($bal['overpayment']),
             $available <= 0 => 'Доступно 0 ₽',
             default => null,
@@ -160,20 +158,14 @@ class DirectorSalaryService
     }
 
     /**
-     * Ставка на всю сумму S.
-     * Материнский город: 15 / 20 / 25% (ТЗ).
-     * Спутник: фиксированные 10% (отдельная процентовка).
+     * Ставка на всю сумму S (котёл кластера: город + его спутники): 15 / 20 / 25% (ТЗ).
      */
-    public function ratePercentForBase(int $s, bool $isSatellite = false): int
+    public function ratePercentForBase(int $s): int
     {
-        if ($isSatellite) {
-            return self::SATELLITE_RATE_PERCENT;
-        }
-
         if ($s <= 100_000) {
             return 15;
         }
-        if ($s <= 250_000) {
+        if ($s <= 200_000) {
             return 20;
         }
 
@@ -182,15 +174,53 @@ class DirectorSalaryService
 
     /**
      * commission = (S × p + 50) div 100 — half-up для неотрицательного S.
+     * $s — инкасс самого города, $ratePercent — ставка по котлу кластера (по умолчанию — по $s).
      */
-    public function commissionFromBase(int $s, ?int $ratePercent = null, bool $isSatellite = false): int
+    public function commissionFromBase(int $s, ?int $ratePercent = null): int
     {
         if ($s < 0) {
             throw new \InvalidArgumentException('Отрицательная база инкассации');
         }
-        $p = $ratePercent ?? $this->ratePercentForBase($s, $isSatellite);
+        $p = $ratePercent ?? $this->ratePercentForBase($s);
 
         return intdiv(($s * $p) + 50, 100);
+    }
+
+    /**
+     * Города общего котла: материнский + все его спутники (для обычного города — он один).
+     *
+     * @return array<int, int>
+     */
+    public function clusterCityIds(int $cityId): array
+    {
+        $city = City::query()->find($cityId);
+        if (! $city) {
+            return [$cityId];
+        }
+
+        $rootId = $city->parent_city_id ? (int) $city->parent_city_id : (int) $city->city_id;
+        $ids = City::query()->where('parent_city_id', $rootId)->pluck('city_id')->map(fn ($id) => (int) $id)->all();
+
+        return array_values(array_unique(array_merge([$rootId], $ids)));
+    }
+
+    /**
+     * Сумма инкасса котла (город + спутники) за месяц.
+     *
+     * @return array{base: int, ok: bool, error: ?string}
+     */
+    public function sumClusterIncasBase(int $cityId, Carbon $periodMonth): array
+    {
+        $total = 0;
+        foreach ($this->clusterCityIds($cityId) as $id) {
+            $info = $this->sumIncasBase($id, $periodMonth);
+            if (! $info['ok']) {
+                return $info;
+            }
+            $total += $info['base'];
+        }
+
+        return ['base' => $total, 'ok' => true, 'error' => null];
     }
 
     public function formatMoney(int $amount): string
@@ -367,11 +397,13 @@ class DirectorSalaryService
                 return SalaryCalculation::create($attrs);
             }
 
+            // Ставка — по общему котлу (город + спутники), комиссия — от инкасса самого города:
+            // директор выводит с кассы города только с того, что сдано в этой кассе.
             $s = $baseInfo['base'];
-            $city = City::query()->find($cityId);
-            $isSatellite = (bool) ($city?->isSatellite());
-            $rate = $this->ratePercentForBase($s, $isSatellite);
-            $commission = $this->commissionFromBase($s, $rate, $isSatellite);
+            $poolInfo = $this->sumClusterIncasBase($cityId, $periodMonth);
+            $pool = $poolInfo['ok'] ? $poolInfo['base'] : $s;
+            $rate = $this->ratePercentForBase($pool);
+            $commission = $this->commissionFromBase($s, $rate);
             $salary = $policy['amount'];
             $accrued = $commission + $salary;
 
@@ -607,6 +639,21 @@ class DirectorSalaryService
     }
 
     /**
+     * Проведение выплаты «Дир ЗП»: директор филиала, региональный директор и ст. менеджер
+     * могут проводить выплату по любому расчёту своих городов (в т.ч. если получатель сменился или уволен).
+     * Просмотр чужой зарплаты на странице ЗП по-прежнему ограничен в assertCanView.
+     */
+    public function assertCanPay(User $user, SalaryCalculation $calc): void
+    {
+        if ($user->hasAnyRole(['developer', 'general_director'])) {
+            return;
+        }
+        if (! $user->hasAccessToCity((int) $calc->city_id)) {
+            abort(403, 'Нет доступа к городу');
+        }
+    }
+
+    /**
      * Проверка лимита перед проведением выплаты «Дир ЗП».
      *
      * @throws ValidationException
@@ -672,7 +719,7 @@ class DirectorSalaryService
                 $bal['available'] = max(0, $bal['available'] - $this->reservedDraftAmount($calc, $operation->cfm_id ? (int) $operation->cfm_id : null));
             }
 
-            if ($amount > $bal['available']) {
+            if (config('cfm.director_payout_cap_enforced') && $amount > $bal['available']) {
                 throw ValidationException::withMessages([
                     'amount_cfm' => 'Сумма превышает доступный остаток. Доступно: '.$this->formatMoney($bal['available']),
                 ]);
@@ -688,18 +735,15 @@ class DirectorSalaryService
             return;
         }
 
-        $calc = SalaryCalculation::query()
-            ->where('city_id', $cityId)
+        // Ставка зависит от общего котла кластера — пересчитываем расчёты всех его городов.
+        SalaryCalculation::query()
+            ->whereIn('city_id', $this->clusterCityIds($cityId))
             ->whereDate('period_month', $month->toDateString())
             ->where('status', SalaryCalculation::STATUS_FIXED)
-            ->first();
-
-        if ($calc) {
-            $calc->update([
+            ->update([
                 'status' => SalaryCalculation::STATUS_NEEDS_RECALC,
                 'recalc_requested_at' => now(),
             ]);
-        }
     }
 
     /**

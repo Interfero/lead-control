@@ -190,6 +190,22 @@
             {{-- Правая колонка: документы --}}
             <div class="cfm-show-sidebar">
                 <div class="card p-4">
+                    @if (! empty($lastLogin) && ($lastLogin['login_at'] || $lastLogin['activity_at']))
+                    <p class="text-muted-foreground mb-3 text-sm">
+                        <strong>Последний вход:</strong>
+                        @if ($lastLogin['login_at'])
+                            {{ $lastLogin['login_at']->format('d.m.Y H:i') }}
+                            @if ($lastLogin['ip']) · IP {{ $lastLogin['ip'] }} @endif
+                            @if ($lastLogin['place']) · {{ $lastLogin['place'] }} @endif
+                            @if ($lastLogin['device']) · {{ $lastLogin['device'] }} @endif
+                        @else
+                            нет данных
+                        @endif
+                        @if ($lastLogin['activity_at'])
+                            <br><strong>Последняя активность:</strong> {{ $lastLogin['activity_at']->format('d.m.Y H:i') }}
+                        @endif
+                    </p>
+                @endif
                     <h3 class="order-documents-heading mb-3 text-base">{!! icon('document') !!} Документы сотрудника</h3>
                     <div id="documentError" class="hr-edit-doc-error">
                         <strong>Ошибка:</strong> <span id="documentErrorText"></span>

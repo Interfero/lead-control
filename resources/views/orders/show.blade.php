@@ -221,12 +221,6 @@
                     {{-- Всё в одной карточке --}}
                     <div class="card" style="padding: 1rem;">
                         <h3 class="order-sidebar-heading">{!! icon('orders') !!} Заказ №{{ $order->order_id }}</h3>
-                        <p class="order-sidebar-muted" style="margin: 0.25rem 0 0.5rem;">
-                            Создал: <strong>{{ $order->creator->user_name ?? '—' }}</strong>
-                            @if($order->order_created_at)
-                                · {{ $order->order_created_at->format('d.m.Y H:i') }}
-                            @endif
-                        </p>
                         @if($order->partner_user_id)
                             <p class="order-sidebar-muted" style="margin: 0.25rem 0 0.75rem;">Партнёр SuperPart: user_id {{ $order->partner_user_id }}</p>
                         @endif
@@ -406,6 +400,12 @@
                                 @else
                                     <strong>Источник заказа:</strong> {{ $order->source->display_label ?? 'Не указан' }}
                                 @endif
+                                @if($rkUrl = $order->source?->deskRkUrl())
+                                    <div style="margin-top: 0.25rem;">
+                                        <strong>Ссылка РК:</strong>
+                                        <a href="{{ $rkUrl }}" target="_blank" rel="noopener noreferrer" class="text-primary">{{ $rkUrl }}</a>
+                                    </div>
+                                @endif
                             </div>
                             <div class="order-sidebar-muted" style="margin-top: 0.25rem;">
                                 <strong>Создан:</strong> {{ $order->order_created_at->format('d.m.Y H:i') }} ({{ $order->creator->user_name ?? '—' }})
@@ -437,32 +437,38 @@
                                 $masterFlatCopy = \App\Support\MasterFlatCopyFormatter::fromOrder($order);
                             @endphp
                             @if($canEdit)
-                                <button type="submit" form="orderForm" class="btn btn-primary btn-order-compact">
-                                    {!! icon('save') !!} Сохранить
-                                </button>
+                                <div class="order-show-buttons-col">
+                                    <button type="submit" form="orderForm" class="btn btn-primary btn-order-compact">
+                                        {!! icon('save') !!} Сохранить
+                                    </button>
+                                    <button type="submit" form="orderForm" class="btn btn-primary btn-order-compact" name="save_and_close" value="1">
+                                        {!! icon('save') !!} Сохр. и закрыть
+                                    </button>
+                                </div>
+                                <div class="order-show-buttons-col">
                                 <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyOrderInfo()">
                                     {!! icon('copy') !!} Копировать
                                 </button>
                                 @if($masterFlatCopy)
-                                    <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyMasterFlatInfo()" title="№ заявки + адрес + квартира для чата мастеру">
+                                    <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyMasterFlatInfo()" title="№ заявки + адрес + квартира/комментарий для чата мастеру">
                                         {!! icon('copy') !!} Копировать кв
                                     </button>
                                 @endif
-                                <button type="submit" form="orderForm" class="btn btn-primary btn-order-compact" name="save_and_close" value="1">
-                                    {!! icon('save') !!} Сохр. и закрыть
-                                </button>
+                                </div>
                             @else
+                                <div class="order-show-buttons-col">
                                 <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyOrderInfo()">
                                     {!! icon('copy') !!} Копировать
                                 </button>
                                 @if($masterFlatCopy)
-                                    <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyMasterFlatInfo()" title="№ заявки + адрес + квартира для чата мастеру">
+                                    <button type="button" class="btn btn-secondary btn-order-compact" onclick="copyMasterFlatInfo()" title="№ заявки + адрес + квартира/комментарий для чата мастеру">
                                         {!! icon('copy') !!} Копировать кв
                                     </button>
                                 @endif
+                                </div>
                             @endif
                             
-                            <a href="{{ route('orders.index') }}" class="btn btn-secondary btn-order-compact">
+                            <a href="{{ route('orders.index') }}" class="btn btn-secondary btn-order-compact order-show-buttons-close">
                                 {!! icon('back') !!} Закрыть
                             </a>
                         </div>
@@ -740,7 +746,7 @@
     function copyMasterFlatInfo() {
         const text = @json(\App\Support\MasterFlatCopyFormatter::fromOrder($order));
         if (!text) {
-            showCopyFeedback(false, 'Квартира не указана');
+            showCopyFeedback(false, 'Нет данных для мастера: не указаны ни квартира, ни комментарий к адресу');
             return;
         }
         copyTextToClipboard(text).then(() => {

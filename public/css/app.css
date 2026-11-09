@@ -2441,6 +2441,17 @@ tr.blink-red > td {
     gap: 0.5rem;
 }
 
+.order-show-buttons-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.order-show-buttons-close {
+    grid-column: 1 / -1;
+}
+
 .order-show-docs-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

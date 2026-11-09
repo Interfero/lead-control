@@ -6,6 +6,8 @@ use App\Models\CfmOperation;
 use App\Models\CfmCategory;
 use App\Models\City;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 use App\Models\PromPayment;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +46,41 @@ class CfmService
         $now = now()->timezone($tz);
 
         return $closed->isSameMonth($now);
+    }
+
+    /** Последний момент прошлого календарного месяца (часовой пояс приложения). */
+    public function previousMonthEnd(?Carbon $now = null): Carbon
+    {
+        $tz = (string) (config('app.timezone') ?: 'Europe/Moscow');
+
+        return ($now ?? now())->copy()->timezone($tz)->startOfMonth()->subSecond();
+    }
+
+    /** Последний момент текущего календарного месяца (часовой пояс приложения). */
+    public function currentMonthEnd(?Carbon $now = null): Carbon
+    {
+        $tz = (string) (config('app.timezone') ?: 'Europe/Moscow');
+
+        return ($now ?? now())->copy()->timezone($tz)->endOfMonth()->startOfSecond();
+    }
+
+    /** Варианты даты проводки: ключ формы => момент (null = текущий момент). */
+    public function postingDateOptions(?Carbon $now = null): array
+    {
+        return [
+            'now' => null,
+            'prev_month_end' => $this->previousMonthEnd($now),
+            'month_end' => $this->currentMonthEnd($now),
+        ];
+    }
+
+    /** Инкассацию можно провести последним днём прошлого или текущего месяца (мотивация директора считается по дате проводки). */
+    public function canChoosePostingDate(CfmOperation $operation): bool
+    {
+        $operation->loadMissing('category');
+
+        return ! $operation->cfm_closed_at
+            && in_array($operation->category?->cfm_cat_name, DirectorSalaryService::INCAS_CATEGORIES, true);
     }
 
     public function userCanReopen(User $user, CfmOperation $operation): bool
@@ -255,13 +292,25 @@ class CfmService
     /**
      * Проведение операции
      */
-    public function close(CfmOperation $operation, int $userId): CfmOperation
+    public function close(CfmOperation $operation, int $userId, ?Carbon $closedAt = null): CfmOperation
     {
         if ($operation->cfm_closed_at) {
             throw new \Exception('Операция уже проведена');
         }
-        
-        return DB::transaction(function () use ($operation, $userId) {
+
+        if ($closedAt !== null) {
+            // Только инкассация и только концом прошлого/текущего месяца, не произвольная дата.
+            $allowed = array_filter($this->postingDateOptions());
+            $isAllowed = collect($allowed)->contains(fn (Carbon $d) => $closedAt->equalTo($d));
+            if (! $this->canChoosePostingDate($operation) || ! $isAllowed) {
+                throw ValidationException::withMessages([
+                    'posting' => 'Эту операцию можно провести только текущим моментом',
+                ]);
+            }
+        }
+        $closedAt ??= now();
+
+        return DB::transaction(function () use ($operation, $userId, $closedAt) {
             $operation->loadMissing('category');
             if (app(DirectorSalaryService::class)->isPaymentCategory($operation->category)) {
                 app(DirectorSalaryService::class)->attachDirectorPayoutCalculation(
@@ -281,13 +330,13 @@ class CfmService
             }
 
             $operation->cfm_closed_by = $userId;
-            $operation->cfm_closed_at = now();
+            $operation->cfm_closed_at = $closedAt;
             $operation->save();
             
             // Если это Инкас — проводим парную операцию в УК
             $operation->load('category');
             if ($operation->category->cfm_cat_name === 'Инкас' && $operation->related_city_id) {
-                $this->closeIncasPair($operation, $userId);
+                $this->closeIncasPair($operation, $userId, $closedAt);
             }
 
             // Инкассация/Инкас по завершённому месяцу → пометка пересчёта ЗП
@@ -327,7 +376,7 @@ class CfmService
     /**
      * Проведение парной операции инкаса в УК
      */
-    private function closeIncasPair(CfmOperation $incasOperation, int $userId): void
+    private function closeIncasPair(CfmOperation $incasOperation, int $userId, ?Carbon $closedAt = null): void
     {
         // Находим парную операцию в УК
         $inflowCategory = CfmCategory::where('cfm_cat_name', 'Перемещение (поступление)')->first();
@@ -345,7 +394,7 @@ class CfmService
         
         if ($pairOperation) {
             $pairOperation->cfm_closed_by = $userId;
-            $pairOperation->cfm_closed_at = now();
+            $pairOperation->cfm_closed_at = $closedAt ?? now();
             $pairOperation->save();
         }
     }

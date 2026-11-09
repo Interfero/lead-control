@@ -5,6 +5,7 @@
 @php
     $fmt = fn (int $n) => number_format($n, 0, ',', ' ');
     $available = (int) ($balances['available'] ?? 0);
+    $capOn = (bool) config('cfm.director_payout_cap_enforced');
 @endphp
 
 @section('content')
@@ -66,7 +67,7 @@
             <div class="salary-filters__field">
                 <label class="salary-filters__label" for="salaryAmount">Сумма *</label>
                 <input type="number" name="amount_cfm" id="salaryAmount" class="salary-amount-input" style="width: 100%; margin: 0;"
-                       value="{{ old('amount_cfm') }}" required min="1" max="{{ max(1, $available) }}" step="1" placeholder="0">
+                       value="{{ old('amount_cfm') }}" required min="1" @if($capOn) max="{{ max(1, $available) }}" @endif step="1" placeholder="0">
                 <button type="button" class="salary-btn salary-btn--outline" style="margin-top: 0.5rem; align-self: flex-start;" id="fillAllAvailable"
                         @disabled($available < 1)>Вся доступная сумма</button>
                 @error('amount_cfm')
@@ -89,7 +90,7 @@
             </div>
 
             <div class="salary-policy-actions">
-                <button type="submit" class="salary-btn salary-btn--primary" @disabled($available < 1)>Провести выплату</button>
+                <button type="submit" class="salary-btn salary-btn--primary" @disabled($capOn && $available < 1)>Провести выплату</button>
                 <a href="{{ route('cfm.salary.index', ['month' => now()->timezone(config('app.timezone'))->format('Y-m'), 'calc' => $calculation?->salary_calculation_id]) }}"
                    class="salary-btn salary-btn--outline">Отмена</a>
             </div>

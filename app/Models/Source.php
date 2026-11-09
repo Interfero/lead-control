@@ -181,6 +181,16 @@ class Source extends Model
         return $url !== '' ? $url : null;
     }
 
+    /** Ссылка РК (Avito и т.п.), которую подставляем в описание заявки, если источник доступен в SuperPart. */
+    public function superpartOrderLink(): ?string
+    {
+        if (! $this->available_for_superpart) {
+            return null;
+        }
+
+        return $this->deskRkUrl();
+    }
+
     /**
      * Подпись для селектов при неуникальных названиях: название · город · телефон · формат.
      */

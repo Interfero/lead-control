@@ -502,12 +502,13 @@ class DocumentController extends Controller
                 abort(403, 'Нет доступа к городу этой кассовой операции');
             }
         } elseif ($document->documentable_type === User::class) {
-            if (!$user->hasAnyRole(['branch_head', 'regional_director', 'developer'])) {
+            // Генеральный директор видит документы всех сотрудников (как и загружает их — см. store()).
+            if (!$user->hasAnyRole(['branch_head', 'regional_director', 'developer', 'general_director'])) {
                 abort(403);
             }
             
             // Проверка доступа к городам сотрудника
-            if (!$user->hasRole('developer')) {
+            if (!$user->hasAnyRole(['developer', 'general_director'])) {
                 $employee = User::with('cities')->find($document->documentable_id);
                 if ($employee) {
                     $employeeCityIds = $employee->cities->pluck('city_id')->toArray();
@@ -559,12 +560,13 @@ class DocumentController extends Controller
                 abort(403, 'Нет доступа к городу этой кассовой операции');
             }
         } elseif ($document->documentable_type === User::class) {
-            if (!$user->hasAnyRole(['branch_head', 'regional_director', 'developer'])) {
+            // Генеральный директор видит документы всех сотрудников (как и загружает их — см. store()).
+            if (!$user->hasAnyRole(['branch_head', 'regional_director', 'developer', 'general_director'])) {
                 abort(403);
             }
             
             // Проверка доступа к городам сотрудника
-            if (!$user->hasRole('developer')) {
+            if (!$user->hasAnyRole(['developer', 'general_director'])) {
                 $employee = User::with('cities')->find($document->documentable_id);
                 if ($employee) {
                     $employeeCityIds = $employee->cities->pluck('city_id')->toArray();

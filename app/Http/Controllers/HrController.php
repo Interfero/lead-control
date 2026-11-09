@@ -60,7 +60,9 @@ class HrController extends Controller
             ? City::where('is_active', true)->orderBy('city_name')->get()
             : $user->cities;
         
-        return view('hr.index', compact('employees', 'roles', 'cities', 'filters'));
+        $lastLogins = app(\App\Services\UserLastLoginService::class)->forUsers($employees->pluck('user_id'));
+
+        return view('hr.index', compact('employees', 'roles', 'cities', 'filters', 'lastLogins'));
     }
     
     /**
@@ -127,7 +129,9 @@ class HrController extends Controller
 
         $canSetAccessAllCities = $user->hasAnyRole(['developer', 'general_director']);
 
-        return view('hr.edit', compact('employee', 'creatableRoles', 'cities', 'employeeCityIds', 'documents', 'comments', 'isHrReadOnly', 'isHrRoleLocked', 'canSetAccessAllCities'));
+        $lastLogin = app(\App\Services\UserLastLoginService::class)->forUsers([$employee->user_id])[$employee->user_id] ?? null;
+
+        return view('hr.edit', compact('employee', 'creatableRoles', 'cities', 'employeeCityIds', 'documents', 'comments', 'isHrReadOnly', 'isHrRoleLocked', 'canSetAccessAllCities', 'lastLogin'));
     }
     
     /**
@@ -221,6 +225,18 @@ class HrController extends Controller
                     'success' => false,
                     'message' => 'Выберите хотя бы один город',
                 ], 422);
+            }
+        }
+
+        // Директор может прикреплять нового сотрудника только к своим городам
+        if (! $accessAllCities && ! auth()->user()->hasAnyRole(['developer', 'general_director'])) {
+            foreach ($validated['city_ids'] as $cityId) {
+                if (! auth()->user()->hasAccessToCity((int) $cityId)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Нельзя прикрепить сотрудника к городу, к которому у вас нет доступа',
+                    ], 403);
+                }
             }
         }
 

@@ -49,6 +49,12 @@ class OrderCopyFormatter
             $parts[] = 'РК: '.$rk;
         }
 
+        // Ссылку РК не дублируем, если она уже есть в описании (подставляется при создании заявки).
+        $rkUrl = $order->source?->deskRkUrl();
+        if ($rkUrl !== null && ! str_contains($adds, $rkUrl)) {
+            $parts[] = $rkUrl;
+        }
+
         if ($order->order_core === 'non_core') {
             $parts[] = 'непрофильная';
         }

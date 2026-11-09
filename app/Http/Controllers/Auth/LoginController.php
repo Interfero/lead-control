@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\BotGuardService;
+use App\Services\LoginSecurityService;
 use App\Services\SecurityAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -67,9 +68,7 @@ class LoginController extends Controller
             $this->clearFailedAttempts($email, $request->ip());
 
             $user = Auth::user();
-            $this->audit->log('login_success', $user, 'user', (string) $user->user_id, [
-                'email' => $user->email,
-            ], $request);
+            app(LoginSecurityService::class)->recordLogin($user, $request, 'password');
 
             $request->session()->forget('two_factor_passed');
 

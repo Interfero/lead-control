@@ -50,6 +50,35 @@ class OrderController extends Controller
         }
     }
 
+    /** Окно, в течение которого руководитель филиала может снова открыть проведённый заказ. */
+    private const BRANCH_HEAD_REOPEN_HOURS = 12;
+
+    private function userCanReopenOrder(User $user, Order $order): bool
+    {
+        if ($user->hasAnyRole(['developer', 'regional_director', 'senior_dispatcher', 'general_director'])) {
+            return true;
+        }
+
+        return $user->hasRole('branch_head')
+            && $order->order_closed_at !== null
+            && $order->order_closed_at->gte(now()->subHours(self::BRANCH_HEAD_REOPEN_HOURS));
+    }
+
+    /** Если у выбранного источника SuperPart есть ссылка (Avito), добавляем её в описание, не дублируя. */
+    private function orderAddsWithSourceLink(?string $orderAdds, $sourceId): ?string
+    {
+        if (empty($sourceId)) {
+            return $orderAdds;
+        }
+
+        $link = Source::query()->find($sourceId)?->superpartOrderLink();
+        if ($link === null || str_contains((string) $orderAdds, $link)) {
+            return $orderAdds;
+        }
+
+        return trim((string) $orderAdds) === '' ? $link : rtrim((string) $orderAdds)."\n".$link;
+    }
+
     /** Диспетчер КЦ может менять источник (РК) на незакрытой заявке. */
     private function userCanEditSource(User $user, Order $order): bool
     {
@@ -434,10 +463,11 @@ class OrderController extends Controller
                 $query->orderBy($sortField, $sortDir);
             }
         } else {
+            // По умолчанию: приоритет статуса, внутри — от новых к старым
             if ($usesDispatcherSort) {
-                $query->orderByDispatcherListDefault();
+                $query->orderByDispatcherListDefault('desc');
             } else {
-                $query->orderByListDefault();
+                $query->orderByListDefault('desc');
             }
         }
         $query->withExists('cityViews');
@@ -594,7 +624,7 @@ class OrderController extends Controller
             'order_core' => $orderCore,
             'equipment_type' => $validated['equipment_type'] ?? null,
             'order_status' => $validated['order_status'],
-            'order_adds' => $validated['order_adds'] ?? null,
+            'order_adds' => $this->orderAddsWithSourceLink($validated['order_adds'] ?? null, $validated['source_id'] ?? null),
             'source_id' => $validated['source_id'] ?? null,
             'is_long_trip' => $this->userCanEditLongTrip($user) && (int) $request->input('is_long_trip', 0) === 1,
             'order_created_at' => now(),
@@ -739,7 +769,7 @@ class OrderController extends Controller
         $isDeveloper = $user->hasRole('developer');
         $canEditClosedOrder = $user->hasAnyRole(['developer', 'senior_dispatcher', 'general_director']);
         $isEditable = ! $order->order_closed_at || $canEditClosedOrder;
-        $canReopenClosedOrder = $user->hasAnyRole(['developer', 'regional_director', 'senior_dispatcher', 'general_director']);
+        $canReopenClosedOrder = $this->userCanReopenOrder($user, $order);
 
         $canEditCcFields = $user->hasAnyRole(['developer', 'call_center', 'senior_dispatcher', 'general_director']);
         $canEditScheduleFields = $this->userCanEditScheduleFields($user);
@@ -1180,7 +1210,8 @@ class OrderController extends Controller
     }
 
     /**
-     * Открытие проведённого заказа (разработчик, рег. директор, старший диспетчер, гендир).
+     * Открытие проведённого заказа (разработчик, рег. директор, старший диспетчер, гендир;
+     * руководитель филиала — в течение 12 ч после проведения).
      * Снимает проведение, «Готов»/«Отказ» → «В работе».
      */
     public function reopen(int $order_id)
@@ -1189,12 +1220,14 @@ class OrderController extends Controller
         $this->authorizeOrderAccessForMutation($order);
         $user = auth()->user();
 
-        if (! $user->hasAnyRole(['developer', 'regional_director', 'senior_dispatcher', 'general_director'])) {
-            abort(403, 'Нет прав на открытие проведённого заказа');
-        }
-
         if (! $order->order_closed_at) {
             return back()->with('error', 'Заказ не был проведён');
+        }
+
+        if (! $this->userCanReopenOrder($user, $order)) {
+            abort(403, $user->hasRole('branch_head')
+                ? 'Руководитель филиала может открыть заказ только в течение '.self::BRANCH_HEAD_REOPEN_HOURS.' ч после проведения'
+                : 'Нет прав на открытие проведённого заказа');
         }
 
         try {

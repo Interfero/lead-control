@@ -38,6 +38,9 @@ Route::middleware(['auth'])->group(function () {
 */
 
 Route::middleware(['auth'])->group(function () {
+    Route::post('/security-alerts/{alert_id}/seen', [\App\Http\Controllers\SecurityAlertController::class, 'seen'])
+        ->name('security-alerts.seen')->whereNumber('alert_id')
+        ->middleware('role:general_director,developer');
     Route::get('/csrf-token', fn () => response()->json(['token' => csrf_token()]))->name('csrf-token');
 
     Route::get('/notifications/unseen-city-orders-count', [\App\Http\Controllers\OrderNotificationController::class, 'unseenCityOrdersCount'])
@@ -108,7 +111,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Открытие проведённого заказа
         Route::post('/{order_id}/reopen', [\App\Http\Controllers\OrderController::class, 'reopen'])->name('reopen')
-            ->middleware('role:developer,regional_director,senior_dispatcher,general_director')
+            ->middleware('role:developer,branch_head,regional_director,senior_dispatcher,general_director')
             ->whereNumber('order_id');
 
         // Документы заказа (тех. директор и ген. директор только просматривают)

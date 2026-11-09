@@ -141,6 +141,8 @@ class PartnerReferenceController extends Controller
         $validated = $request->validate([
             'superpart_partner_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'source_name' => ['sometimes', 'string', 'max:255'],
+            'source_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'use_source_url' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'available_for_superpart' => ['sometimes', 'boolean'],
             'deleted' => ['sometimes', 'boolean'],
@@ -188,6 +190,11 @@ class PartnerReferenceController extends Controller
 
         if (array_key_exists('is_active', $validated)) {
             $source->is_active = (bool) $validated['is_active'];
+        }
+
+        // Ссылка РК (Avito) от SuperPart: меняем только если пришла явно, остальные PATCH её не трогают.
+        if (array_key_exists('source_url', $validated) || array_key_exists('use_source_url', $validated)) {
+            $this->applyPartyUrlFields($source, $validated);
         }
 
         $source->save();

@@ -18,6 +18,7 @@ final class MasterFlatCopyFormatter
         string $orderNumber,
         string $streetAddress,
         string $officeLine,
+        string $commentLine = '',
     ): string {
         $num = trim($orderNumber);
         $num = ltrim($num, "№# \t");
@@ -25,6 +26,7 @@ final class MasterFlatCopyFormatter
         $num = trim((string) $num);
         $street = trim($streetAddress);
         $office = self::normalizeOfficeLine($officeLine);
+        $comment = trim($commentLine);
 
         $lines = ['Заказ '.$num];
         if ($street !== '') {
@@ -32,6 +34,9 @@ final class MasterFlatCopyFormatter
         }
         if ($office !== '') {
             $lines[] = $office;
+        }
+        if ($comment !== '') {
+            $lines[] = $comment;
         }
 
         return implode("\n", $lines);
@@ -41,18 +46,26 @@ final class MasterFlatCopyFormatter
     {
         $order->loadMissing(['address.city']);
         $flat = trim((string) ($order->address?->flat ?? ''));
-        if ($flat === '') {
+        $adds = trim((string) ($order->address?->address_adds ?? ''));
+        if ($flat === '' && $adds === '') {
             return null;
         }
 
         $street = self::formatStreetLine($order);
-        $office = 'кв / офис: '.$flat;
-        $adds = trim((string) ($order->address?->address_adds ?? ''));
-        if ($adds !== '') {
-            $office .= ' '.$adds;
+
+        if ($flat !== '') {
+            $office = 'кв / офис: '.$flat;
+            if ($adds !== '') {
+                $office .= ' '.$adds;
+            }
+
+            return self::format((string) $order->order_id, $street, $office);
         }
 
-        return self::format((string) $order->order_id, $street, $office);
+        // Квартиры/офиса нет, но комментарий к адресу есть (код домофона, этаж,
+        // как найти дом) — мастеру он всё равно нужен, раньше кнопка копирования
+        // вообще не показывалась без flat и комментарий пропадал молча.
+        return self::format((string) $order->order_id, $street, '', $adds);
     }
 
     public static function normalizeOfficeLine(string $officeLine): string

@@ -59,4 +59,8 @@ return [
     | Спутник и материнский город независимы: инкасс по одной кассе не смотрит на другую.
     */
     'overdraft_limit' => max(0, (int) env('CFM_OVERDRAFT_LIMIT', 2000)),
+
+    // Лимит выплаты «ЗП директора» по начислению (сумма не больше «Доступно»).
+    // По умолчанию выключен: можно провести любую сумму. Включить: DIRECTOR_PAYOUT_CAP_ENFORCED=true
+    'director_payout_cap_enforced' => (bool) env('DIRECTOR_PAYOUT_CAP_ENFORCED', false),
 ];
